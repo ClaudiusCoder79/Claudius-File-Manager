@@ -36,7 +36,7 @@ Windows SmartScreen may warn about an unsigned app the first time; choose **More
 - Ctrl+C / Ctrl+X / Ctrl+V clipboard that works both ways with Explorer
 - Drag and drop between panels, onto folders, and to/from Explorer or the desktop (hold Shift to move)
 - F3 viewer for text and images; F3 on a folder calculates its size
-- **Preview window (Ctrl+Q):** a small floating window that follows the selected file — video and music player, photos, PDF pages, text and CNC programs, and Windows thumbnails for Office documents and everything else
+- **Preview window:** on by default — a small floating window that follows the selected file: video and music player, photos, PDF pages, text and CNC programs, and Windows thumbnails for Office documents and everything else. Turn it off or on with the Preview button (Home or View tab) or Ctrl+Q
 - Live auto-refresh when files change on disk
 - Panels, hidden-files setting and window size are remembered between runs
 

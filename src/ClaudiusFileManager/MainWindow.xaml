@@ -133,6 +133,10 @@
                                     Content="{DynamicResource L.View}" Tag="view" Click="Cmd_Click" ToolTip="F3"/>
                             <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TilePurple}" local:Rb.Glyph="&#xE70F;"
                                     Content="{DynamicResource L.Edit}" Tag="edit" Click="Cmd_Click" ToolTip="F4"/>
+                            <ToggleButton Style="{StaticResource RibbonToggle}"
+                                          local:Rb.Tile="{StaticResource TileTeal}" local:Rb.Glyph="&#xE8FF;"
+                                          Content="{DynamicResource L.Preview}" ToolTip="Ctrl+Q"
+                                          IsChecked="{Binding IsChecked, ElementName=PreviewSwitch, Mode=TwoWay}"/>
                         </StackPanel>
                     </HeaderedContentControl>
                 </StackPanel>

@@ -88,7 +88,7 @@ public partial class MainWindow : Window
         LeftPanel.ShowFolderSizes = RightPanel.ShowFolderSizes = S.ShowFolderSizes;
         FolderSizeSwitch.IsChecked = S.ShowFolderSizes;
         NavPaneSwitch.IsChecked = S.ShowNavPane;
-        PreviewSwitch.IsChecked = S.ShowPreview;
+        PreviewSwitch.IsChecked = S.AutoPreview;
         ApplyNavPane(S.ShowNavPane);
 
         switch (ThemeManager.Mode)
@@ -119,7 +119,7 @@ public partial class MainWindow : Window
         S.ShowHidden = HiddenSwitch.IsChecked == true;
         S.ShowFolderSizes = FolderSizeSwitch.IsChecked == true;
         S.ShowNavPane = NavPaneSwitch.IsChecked == true;
-        S.ShowPreview = PreviewSwitch.IsChecked == true;
+        S.AutoPreview = PreviewSwitch.IsChecked == true;
         _preview?.SaveGeometry();
         if (S.ShowNavPane && NavColumn.ActualWidth > 0) S.NavPaneWidth = NavColumn.ActualWidth;
         S.Maximized = WindowState == WindowState.Maximized;

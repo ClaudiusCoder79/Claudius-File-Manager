@@ -9,7 +9,8 @@ public sealed class Settings
     public bool ShowHidden { get; set; }
     public bool ShowFolderSizes { get; set; } = true;
     public bool ShowNavPane { get; set; } = true;
-    public bool ShowPreview { get; set; }
+    /// <summary>Preview window follows the selection (on unless the user turns it off).</summary>
+    public bool AutoPreview { get; set; } = true;
     public double PreviewLeft { get; set; }
     public double PreviewTop { get; set; }
     public double PreviewWidth { get; set; }
