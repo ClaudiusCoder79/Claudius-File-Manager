@@ -1,0 +1,301 @@
+<Window x:Class="ClaudiusFileManager.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ClaudiusFileManager"
+        Title="Claudius File Manager" Icon="Assets/app.ico" Width="1320" Height="820" MinWidth="980" MinHeight="600"
+        Background="{DynamicResource BgBrush}" FontFamily="{StaticResource AppFont}"
+        Foreground="{DynamicResource LabelBrush}"
+        WindowStartupLocation="CenterScreen" UseLayoutRounding="True"
+        PreviewKeyDown="Window_PreviewKeyDown">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="78" ResizeBorderThickness="6" GlassFrameThickness="0"
+                      CornerRadius="0" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Grid x:Name="Root">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32"/>   <!-- small title strip -->
+            <RowDefinition Height="46"/>   <!-- app name, quick access, tabs -->
+            <RowDefinition Height="Auto"/> <!-- ribbon -->
+            <RowDefinition Height="*"/>    <!-- panels -->
+            <RowDefinition Height="Auto"/> <!-- F-key bar -->
+        </Grid.RowDefinitions>
+
+        <!-- ===== Title strip ===== -->
+        <Border Grid.Row="0" Background="{DynamicResource ChromeBrush}">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                    <Button Style="{StaticResource CaptionButton}" Click="Min_Click"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE921;" FontSize="10"/>
+                    </Button>
+                    <Button Style="{StaticResource CaptionButton}" Click="Max_Click"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                        <TextBlock x:Name="MaxGlyph" Style="{StaticResource Glyph}" Text="&#xE922;" FontSize="10"/>
+                    </Button>
+                    <Button Style="{StaticResource CloseCaptionButton}" Click="Close_Click"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE8BB;" FontSize="10"/>
+                    </Button>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <Image Source="Assets/app.png" Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <TextBlock Text="CLAUDIUS FILE MANAGER" FontSize="11.5" Margin="8,0,0,0" VerticalAlignment="Center"
+                               Foreground="{DynamicResource SecondaryLabelBrush}"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ===== App name + quick access + tabs ===== -->
+        <Border Grid.Row="1" Background="{DynamicResource RibbonBrush}">
+            <StackPanel Orientation="Horizontal" Margin="14,0,0,0" VerticalAlignment="Center">
+                <Image Source="Assets/app.png" Width="24" Height="24" RenderOptions.BitmapScalingMode="HighQuality"/>
+                <TextBlock Text="CLAUDIUS FILE MANAGER" FontSize="15" FontWeight="Bold" Margin="8,0,12,0"
+                           VerticalAlignment="Center"/>
+
+                <Button Style="{StaticResource QuickButton}" local:Rb.Tile="{StaticResource TileBlue}"
+                        local:Rb.Glyph="&#xE72C;" Tag="refresh" Click="Cmd_Click"
+                        ToolTip="{DynamicResource L.TipRefresh}" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <Button Style="{StaticResource QuickButton}" local:Rb.Tile="{StaticResource TileGreen}"
+                        local:Rb.Glyph="&#xE8F4;" Tag="mkdir" Click="Cmd_Click"
+                        ToolTip="{DynamicResource L.TipNewFolder}" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <Button Style="{StaticResource QuickButton}" local:Rb.Tile="{StaticResource TileOrange}"
+                        local:Rb.Glyph="&#xE756;" Tag="terminal" Click="Cmd_Click"
+                        ToolTip="{DynamicResource L.TipTerminal}" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <Button Style="{StaticResource QuickButton}" local:Rb.Tile="{StaticResource TilePurple}"
+                        local:Rb.Glyph="&#xE946;" Tag="about" Click="Cmd_Click"
+                        ToolTip="{DynamicResource L.TipAbout}" WindowChrome.IsHitTestVisibleInChrome="True"/>
+
+                <Border Width="1" Height="22" Margin="14,0,10,0" Background="{DynamicResource SeparatorBrush}"/>
+
+                <RadioButton x:Name="TabHome" Style="{StaticResource RibbonTab}" GroupName="tabs" IsChecked="True"
+                             Content="{DynamicResource L.TabHome}" Checked="Tab_Checked"
+                             WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <RadioButton x:Name="TabSelect" Style="{StaticResource RibbonTab}" GroupName="tabs"
+                             Content="{DynamicResource L.TabSelect}" Checked="Tab_Checked"
+                             WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <RadioButton x:Name="TabView" Style="{StaticResource RibbonTab}" GroupName="tabs"
+                             Content="{DynamicResource L.TabView}" Checked="Tab_Checked"
+                             WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <RadioButton x:Name="TabTools" Style="{StaticResource RibbonTab}" GroupName="tabs"
+                             Content="{DynamicResource L.TabTools}" Checked="Tab_Checked"
+                             WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <RadioButton x:Name="TabAbout" Style="{StaticResource RibbonTab}" GroupName="tabs"
+                             Content="{DynamicResource L.TabAbout}" Checked="Tab_Checked"
+                             WindowChrome.IsHitTestVisibleInChrome="True"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ===== Ribbon ===== -->
+        <Border Grid.Row="2" Background="{DynamicResource RibbonBrush}" BorderThickness="0,1,0,1"
+                BorderBrush="{DynamicResource SeparatorBrush}" Padding="8,0" Height="96">
+            <Grid>
+                <!-- Home -->
+                <StackPanel x:Name="PanelHome" Orientation="Horizontal">
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpClipboard}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileBlue}" local:Rb.Glyph="&#xE8C8;"
+                                    Content="{DynamicResource L.Copy}" Tag="clipcopy" Click="Cmd_Click" ToolTip="Ctrl+C"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileBlue}" local:Rb.Glyph="&#xE8C6;"
+                                    Content="{DynamicResource L.Cut}" Tag="clipcut" Click="Cmd_Click" ToolTip="Ctrl+X"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileBlue}" local:Rb.Glyph="&#xE77F;"
+                                    Content="{DynamicResource L.Paste}" Tag="paste" Click="Cmd_Click" ToolTip="Ctrl+V"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileBlue}" local:Rb.Glyph="&#xE71B;"
+                                    Content="{DynamicResource L.CopyPath}" Tag="copypath" Click="Cmd_Click" ToolTip="Ctrl+Shift+C"/>
+                        </StackPanel>
+                    </HeaderedContentControl>
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpOrganize}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileGreen}" local:Rb.Glyph="&#xE8C8;"
+                                    Content="{DynamicResource L.CopyTo}" Tag="copy" Click="Cmd_Click" ToolTip="F5"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileGreen}" local:Rb.Glyph="&#xE8DE;"
+                                    Content="{DynamicResource L.MoveTo}" Tag="move" Click="Cmd_Click" ToolTip="F6"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileOrange}" local:Rb.Glyph="&#xE8AC;"
+                                    Content="{DynamicResource L.Rename}" Tag="rename" Click="Cmd_Click" ToolTip="F2"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileRed}" local:Rb.Glyph="&#xE74D;"
+                                    Content="{DynamicResource L.Delete}" Tag="delete" Click="Cmd_Click" ToolTip="F8"/>
+                        </StackPanel>
+                    </HeaderedContentControl>
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpNew}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileYellow}" local:Rb.Glyph="&#xE8F4;"
+                                    Content="{DynamicResource L.NewFolder}" Tag="mkdir" Click="Cmd_Click" ToolTip="F7"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileTeal}" local:Rb.Glyph="&#xE8A5;"
+                                    Content="{DynamicResource L.NewFile}" Tag="newfile" Click="Cmd_Click" ToolTip="Shift+F4"/>
+                        </StackPanel>
+                    </HeaderedContentControl>
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpOpen}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TilePurple}" local:Rb.Glyph="&#xE8E5;"
+                                    Content="{DynamicResource L.Open}" Tag="open" Click="Cmd_Click" ToolTip="Enter"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TilePurple}" local:Rb.Glyph="&#xE7B3;"
+                                    Content="{DynamicResource L.View}" Tag="view" Click="Cmd_Click" ToolTip="F3"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TilePurple}" local:Rb.Glyph="&#xE70F;"
+                                    Content="{DynamicResource L.Edit}" Tag="edit" Click="Cmd_Click" ToolTip="F4"/>
+                        </StackPanel>
+                    </HeaderedContentControl>
+                </StackPanel>
+
+                <!-- Select -->
+                <StackPanel x:Name="PanelSelect" Orientation="Horizontal" Visibility="Collapsed">
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpSelection}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileIndigo}" local:Rb.Glyph="&#xE8B3;"
+                                    Content="{DynamicResource L.SelectAll}" Tag="selall" Click="Cmd_Click" ToolTip="Ctrl+A"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileIndigo}" local:Rb.Glyph="&#xE8E6;"
+                                    Content="{DynamicResource L.SelectNone}" Tag="selnone" Click="Cmd_Click" ToolTip="Esc"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileIndigo}" local:Rb.Glyph="&#xE895;"
+                                    Content="{DynamicResource L.Invert}" Tag="selinv" Click="Cmd_Click"/>
+                        </StackPanel>
+                    </HeaderedContentControl>
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpPanels}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileTeal}" local:Rb.Glyph="&#xE8AB;"
+                                    Content="{DynamicResource L.Swap}" Tag="swap" Click="Cmd_Click" ToolTip="Ctrl+U"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileTeal}" local:Rb.Glyph="&#xE8A9;"
+                                    Content="{DynamicResource L.SameFolder}" Tag="samepath" Click="Cmd_Click" ToolTip="Ctrl+="/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileTeal}" local:Rb.Glyph="&#xE72C;"
+                                    Content="{DynamicResource L.Refresh}" Tag="refresh" Click="Cmd_Click" ToolTip="Ctrl+R"/>
+                        </StackPanel>
+                    </HeaderedContentControl>
+                </StackPanel>
+
+                <!-- View -->
+                <StackPanel x:Name="PanelView" Orientation="Horizontal" Visibility="Collapsed">
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpShow}">
+                        <StackPanel Orientation="Horizontal">
+                        <ToggleButton x:Name="HiddenSwitch" Style="{StaticResource RibbonToggle}"
+                                      local:Rb.Tile="{StaticResource TileGray}" local:Rb.Glyph="&#xE890;"
+                                      Content="{DynamicResource L.HiddenFiles}" ToolTip="Ctrl+H"
+                                      Checked="HiddenSwitch_Changed" Unchecked="HiddenSwitch_Changed"/>
+                        <ToggleButton x:Name="NavPaneSwitch" Style="{StaticResource RibbonToggle}"
+                                      local:Rb.Tile="{StaticResource TileIndigo}" local:Rb.Glyph="&#xE8A0;"
+                                      Content="{DynamicResource L.NavPane}"
+                                      Checked="NavPaneSwitch_Changed" Unchecked="NavPaneSwitch_Changed"/>
+                        <ToggleButton x:Name="FolderSizeSwitch" Style="{StaticResource RibbonToggle}"
+                                      local:Rb.Tile="{StaticResource TileOrange}" local:Rb.Glyph="&#xE8B7;"
+                                      Content="{DynamicResource L.FolderSizes}"
+                                      Checked="FolderSizeSwitch_Changed" Unchecked="FolderSizeSwitch_Changed"/>
+                        </StackPanel>
+                    </HeaderedContentControl>
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpTheme}">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="ThemeSystem" Style="{StaticResource RibbonRadio}" GroupName="theme" Tag="System"
+                                         local:Rb.Tile="{StaticResource TileBlue}" local:Rb.Glyph="&#xE7F4;"
+                                         Content="{DynamicResource L.ThemeSystem}" Checked="Theme_Checked"/>
+                            <RadioButton x:Name="ThemeLight" Style="{StaticResource RibbonRadio}" GroupName="theme" Tag="Light"
+                                         local:Rb.Tile="{StaticResource TileOrange}" local:Rb.Glyph="&#xE706;"
+                                         Content="{DynamicResource L.ThemeLight}" Checked="Theme_Checked"/>
+                            <RadioButton x:Name="ThemeDark" Style="{StaticResource RibbonRadio}" GroupName="theme" Tag="Dark"
+                                         local:Rb.Tile="{StaticResource TileIndigo}" local:Rb.Glyph="&#xE708;"
+                                         Content="{DynamicResource L.ThemeDark}" Checked="Theme_Checked"/>
+                        </StackPanel>
+                    </HeaderedContentControl>
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpLanguage}">
+                        <Button x:Name="LanguageButton" Style="{StaticResource RibbonButton}"
+                                local:Rb.Tile="{StaticResource TileGreen}" local:Rb.Glyph="&#xE774;"
+                                Click="Language_Click"/>
+                    </HeaderedContentControl>
+                </StackPanel>
+
+                <!-- Tools -->
+                <StackPanel x:Name="PanelTools" Orientation="Horizontal" Visibility="Collapsed">
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpNetwork}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileTeal}" local:Rb.Glyph="&#xE968;"
+                                    Content="{DynamicResource L.Network}" Tag="network" Click="Cmd_Click"
+                                    ToolTip="{DynamicResource L.NetworkTip}"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileBlue}" local:Rb.Glyph="&#xE8CE;"
+                                    Content="{DynamicResource L.MapDrive}" Tag="mapdrive" Click="Cmd_Click"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileRed}" local:Rb.Glyph="&#xE8CD;"
+                                    Content="{DynamicResource L.DisconnectDrive}" Tag="unmapdrive" Click="Cmd_Click"/>
+                        </StackPanel>
+                    </HeaderedContentControl>
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpSystem}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileGray}" local:Rb.Glyph="&#xE756;"
+                                    Content="{DynamicResource L.Terminal}" Tag="terminal" Click="Cmd_Click" ToolTip="Ctrl+T"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileYellow}" local:Rb.Glyph="&#xEC50;"
+                                    Content="{DynamicResource L.Explorer}" Tag="explorer" Click="Cmd_Click" ToolTip="Ctrl+E"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileBlue}" local:Rb.Glyph="&#xE946;"
+                                    Content="{DynamicResource L.Properties}" Tag="properties" Click="Cmd_Click" ToolTip="Alt+Enter"/>
+                        </StackPanel>
+                    </HeaderedContentControl>
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpInfo}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileTeal}" local:Rb.Glyph="&#xEDA2;"
+                                    Content="{DynamicResource L.FolderSize}" Tag="foldersize" Click="Cmd_Click"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TilePurple}" local:Rb.Glyph="&#xE765;"
+                                    Content="{DynamicResource L.Shortcuts}" Tag="help" Click="Cmd_Click" ToolTip="F1"/>
+                        </StackPanel>
+                    </HeaderedContentControl>
+                </StackPanel>
+
+                <!-- About -->
+                <Grid x:Name="PanelAbout" Visibility="Collapsed" Margin="8,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Image Source="Assets/app.png" Width="64" Height="64" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Claudius File Manager" FontSize="18" FontWeight="Bold"/>
+                            <TextBlock x:Name="AboutVersion" FontSize="13" Margin="10,0,0,1" VerticalAlignment="Bottom"
+                                       Foreground="{DynamicResource SecondaryLabelBrush}"/>
+                            <Border Background="{DynamicResource GreenBrush}" CornerRadius="6" Padding="8,2"
+                                    Margin="10,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource L.Freeware}" Foreground="White" FontSize="11.5"
+                                           FontWeight="SemiBold"/>
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="{DynamicResource L.CreatedBy}" FontSize="13.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AccentBrush}" Margin="0,4,0,0"/>
+                        <TextBlock Text="{DynamicResource L.FreewareMsg}" FontSize="12.5" Margin="0,2,0,0"
+                                   Foreground="{DynamicResource SecondaryLabelBrush}" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileGreen}" local:Rb.Glyph="&#xE7C3;"
+                                Content="{DynamicResource L.License}" Tag="license" Click="Cmd_Click"/>
+                        <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TilePurple}" local:Rb.Glyph="&#xE765;"
+                                Content="{DynamicResource L.Shortcuts}" Tag="help" Click="Cmd_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ===== Dual panels ===== -->
+        <Grid Grid.Row="3" Margin="12,12,12,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="NavColumn" Width="240" MinWidth="150" MaxWidth="480"/>
+                <ColumnDefinition x:Name="NavSplitColumn" Width="10"/>
+                <ColumnDefinition Width="*" MinWidth="300"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*" MinWidth="300"/>
+            </Grid.ColumnDefinitions>
+            <!-- Navigation pane: a live copy of Windows Explorer's -->
+            <local:NavPane x:Name="Nav" Grid.Column="0"/>
+            <GridSplitter x:Name="NavSplitter" Grid.Column="1" Width="10" HorizontalAlignment="Stretch" Background="Transparent"
+                          Focusable="False" ResizeBehavior="PreviousAndNext" Cursor="SizeWE"/>
+            <local:FilePanel x:Name="LeftPanel" Grid.Column="2"/>
+            <GridSplitter Grid.Column="3" Width="10" HorizontalAlignment="Stretch" Background="Transparent"
+                          Focusable="False" ResizeBehavior="PreviousAndNext" Cursor="SizeWE"/>
+            <local:FilePanel x:Name="RightPanel" Grid.Column="4"/>
+        </Grid>
+
+        <!-- ===== Function key bar (Total Commander) ===== -->
+        <UniformGrid Grid.Row="4" Rows="1" Margin="8,10,8,12">
+            <Button Style="{StaticResource FKeyButton}" local:Hint.Key="F2" Tag="rename" Click="Cmd_Click" Content="{DynamicResource L.Rename}"/>
+            <Button Style="{StaticResource FKeyButton}" local:Hint.Key="F3" Tag="view" Click="Cmd_Click" Content="{DynamicResource L.View}"/>
+            <Button Style="{StaticResource FKeyButton}" local:Hint.Key="F4" Tag="edit" Click="Cmd_Click" Content="{DynamicResource L.Edit}"/>
+            <Button Style="{StaticResource FKeyButton}" local:Hint.Key="F5" Tag="copy" Click="Cmd_Click" Content="{DynamicResource L.Copy}"/>
+            <Button Style="{StaticResource FKeyButton}" local:Hint.Key="F6" Tag="move" Click="Cmd_Click" Content="{DynamicResource L.Move}"/>
+            <Button Style="{StaticResource FKeyButton}" local:Hint.Key="F7" Tag="mkdir" Click="Cmd_Click" Content="{DynamicResource L.NewFolder}"/>
+            <Button Style="{StaticResource FKeyButton}" local:Hint.Key="F8" Tag="delete" Click="Cmd_Click" Content="{DynamicResource L.Delete}"
+                    Foreground="{DynamicResource RedBrush}"/>
+            <Button Style="{StaticResource FKeyButton}" local:Hint.Key="Alt+F4" Tag="quit" Click="Cmd_Click" Content="{DynamicResource L.Quit}"/>
+        </UniformGrid>
+    </Grid>
+</Window>

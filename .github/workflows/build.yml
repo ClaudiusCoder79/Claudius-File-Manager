@@ -1,0 +1,81 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to publish releases on tags
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Work out version
+        id: ver
+        shell: pwsh
+        run: |
+          if ("${{ github.ref }}" -like "refs/tags/v*") {
+            $v = "${{ github.ref_name }}".TrimStart('v')
+          } else {
+            $v = "1.0.${{ github.run_number }}"
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Publish single-file exe (win-x64)
+        run: >
+          dotnet publish src/ClaudiusFileManager/ClaudiusFileManager.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:Version=${{ steps.ver.outputs.version }}
+          -o publish
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --no-progress -y
+          }
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp "/DMyAppVersion=${{ steps.ver.outputs.version }}" installer\ClaudiusFileManager.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload portable exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClaudiusFileManager-${{ steps.ver.outputs.version }}-portable
+          path: publish/ClaudiusFileManager.exe
+          if-no-files-found: error
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClaudiusFileManager-Setup-${{ steps.ver.outputs.version }}
+          path: installer-output/*.exe
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            installer-output/ClaudiusFileManager-Setup-${{ steps.ver.outputs.version }}.exe
+            publish/ClaudiusFileManager.exe
+          generate_release_notes: true
