@@ -101,6 +101,10 @@ public partial class PreviewWindow : Window
             vs.Contains(new Point(S.PreviewLeft + 40, S.PreviewTop + 20)))
         {
             Left = S.PreviewLeft; Top = S.PreviewTop; Width = S.PreviewWidth; Height = S.PreviewHeight;
+            // Keep it fully on screen (above the taskbar) if it was left hanging over an edge.
+            var wa = SystemParameters.WorkArea;
+            if (Top + Height > wa.Bottom && vs.Bottom <= wa.Bottom + 100) Top = Math.Max(wa.Top, wa.Bottom - Height);
+            if (Left + Width > vs.Right) Left = Math.Max(vs.Left, vs.Right - Width);
             return;
         }
         var ownerRect = owner.WindowState == WindowState.Maximized
