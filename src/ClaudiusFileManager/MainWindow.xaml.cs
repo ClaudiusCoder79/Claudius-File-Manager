@@ -55,7 +55,8 @@ public partial class MainWindow : Window
         Closing += (_, _) =>
         {
             SaveSettings();
-            _preview?.CloseForReal();
+            // The preview must never stop the main window from closing.
+            try { _preview?.CloseForReal(); } catch { /* ignore */ }
         };
         StateChanged += (_, _) => UpdateMaxState();
     }

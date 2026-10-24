@@ -3,6 +3,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
@@ -45,6 +46,7 @@ public partial class PreviewWindow : Window
     private bool _playing, _seeking, _closingForReal;
     private PdfRender? _pdf;
     private uint _pdfPage;
+    private int _rotation;          // degrees a phone video must be turned to stand upright
     private string _baseDetails = "";
 
     private static Settings S => App.Settings;
@@ -118,12 +120,20 @@ public partial class PreviewWindow : Window
     {
         if (!_closingForReal)
         {
+            // Alt+F4: keep the window alive. A window cannot be hidden while it is closing,
+            // so hide it right after.
             e.Cancel = true;
-            SaveGeometry();
-            Park();
-            UserClosed?.Invoke();
+            Dispatcher.BeginInvoke(HideByUser);
         }
         base.OnClosing(e);
+    }
+
+    private void HideByUser()
+    {
+        if (!IsVisible) return;
+        SaveGeometry();
+        Park();
+        UserClosed?.Invoke();
     }
 
     // ───────────────────────── loading ─────────────────────────
@@ -134,11 +144,15 @@ public partial class PreviewWindow : Window
         _clock.Stop();
         try { Media.Stop(); } catch { /* ignore */ }
         Media.Source = null;
+        Media.LayoutTransform = Transform.Identity;
+        _rotation = 0;
         _playing = false;
         _pdf?.Dispose();
         _pdf = null;
         ImageView.Source = null;
         AlbumArt.Source = null;
+        AudioArtist.Text = "";
+        AudioArtist.Visibility = Visibility.Collapsed;
         InfoImage.Source = null;
         TextView.Text = "";
         foreach (var v in new UIElement[] { ImageView, Media, AudioView, TextView, InfoView, Loading, MediaBar, PageBar })
@@ -258,15 +272,39 @@ public partial class PreviewWindow : Window
         Seek.Value = 0;
         Seek.Maximum = 1;
         TimeText.Text = "0:00";
-        if (video) Media.Visibility = Visibility.Visible;
+        string path = it.FullPath;
+        if (video)
+        {
+            Media.Visibility = Visibility.Visible;
+            // Phone videos are often stored sideways with a "rotate" flag that the player ignores.
+            OnSta(() => ShellProps.Int(ShellProps.Get(path, "System.Video.Orientation")[0]), deg =>
+            {
+                if (req != _request) return;
+                deg = ((deg % 360) + 360) % 360;
+                if (deg is 90 or 180 or 270)
+                {
+                    _rotation = deg;
+                    Media.LayoutTransform = new RotateTransform(deg);
+                }
+            });
+        }
         else
         {
             AudioTitle.Text = Path.GetFileNameWithoutExtension(it.Name);
             AudioView.Visibility = Visibility.Visible;
-            string path = it.FullPath;
             OnSta(() => ShellThumb.Thumbnail(path, 400), art =>
             {
                 if (req == _request && art != null) AlbumArt.Source = art;
+            });
+            // Song title and artist from the file's tags, when it has them.
+            OnSta(() => ShellProps.Get(path, "System.Title", "System.Music.Artist", "System.Music.AlbumTitle"), p =>
+            {
+                if (req != _request || p == null) return;
+                string title = ShellProps.Text(p[0]), artist = ShellProps.Text(p[1]), album = ShellProps.Text(p[2]);
+                if (title.Length > 0) AudioTitle.Text = title;
+                var sub = string.Join("  ·  ", new[] { artist, album }.Where(s => s.Length > 0));
+                AudioArtist.Text = sub;
+                AudioArtist.Visibility = sub.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
             });
         }
         try
@@ -357,8 +395,9 @@ public partial class PreviewWindow : Window
         if (Media.NaturalDuration.HasTimeSpan)
         {
             Seek.Maximum = Math.Max(1, Media.NaturalDuration.TimeSpan.TotalSeconds);
-            AddDetail(Clock(Media.NaturalDuration.TimeSpan) +
-                      (Media.HasVideo ? $"  ·  {Media.NaturalVideoWidth} × {Media.NaturalVideoHeight}" : ""));
+            int w = Media.NaturalVideoWidth, h = Media.NaturalVideoHeight;
+            if (_rotation is 90 or 270) (w, h) = (h, w);
+            AddDetail(Clock(Media.NaturalDuration.TimeSpan) + (Media.HasVideo ? $"  ·  {w} × {h}" : ""));
         }
         UpdateClock();
     }
@@ -433,5 +472,5 @@ public partial class PreviewWindow : Window
         await ShowPdfPage(_request);
     }
 
-    private void Close_Click(object sender, RoutedEventArgs e) => Close();
+    private void Close_Click(object sender, RoutedEventArgs e) => HideByUser();
 }

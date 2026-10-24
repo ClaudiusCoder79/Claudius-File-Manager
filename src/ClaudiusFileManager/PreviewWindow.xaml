@@ -64,6 +64,9 @@
                     </Grid>
                     <TextBlock x:Name="AudioTitle" FontSize="14" FontWeight="SemiBold" Margin="0,12,0,0"
                                HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="360"/>
+                    <TextBlock x:Name="AudioArtist" FontSize="12" Margin="0,3,0,0" Visibility="Collapsed"
+                               Foreground="{DynamicResource SecondaryLabelBrush}"
+                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="360"/>
                 </StackPanel>
 
                 <!-- Text and code -->
