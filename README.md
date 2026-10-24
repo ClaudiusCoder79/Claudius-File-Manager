@@ -1,6 +1,6 @@
 # Claudius File Manager
 
-[![Build](https://github.com/OWNER/Claudius-File-Manager/actions/workflows/build.yml/badge.svg)](https://github.com/OWNER/Claudius-File-Manager/actions/workflows/build.yml)
+[![Build](https://github.com/ClaudiusCoder79/Claudius-File-Manager/actions/workflows/build.yml/badge.svg)](https://github.com/ClaudiusCoder79/Claudius-File-Manager/actions/workflows/build.yml)
 ![Platform](https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4)
 ![.NET](https://img.shields.io/badge/.NET-8-512BD4)
 ![License](https://img.shields.io/badge/license-Freeware-34C759)
@@ -14,7 +14,7 @@ A free dual-pane file manager for Windows 10/11 with **Total Commander's** two-p
 
 ## Download
 
-Get the latest version from the [Releases](https://github.com/OWNER/Claudius-File-Manager/releases) page:
+Get the latest version from the [Releases](https://github.com/ClaudiusCoder79/Claudius-File-Manager/releases) page:
 
 - **`ClaudiusFileManager-Setup-x.y.z.exe`**: the installer. Adds Start menu and optional desktop shortcuts, an optional **Open in Claudius File Manager** entry on the folder right-click menu, and an uninstaller in Settings → Apps.
 - **`ClaudiusFileManager.exe`**: the portable version. A single self-contained file; just run it, nothing to install.
@@ -66,7 +66,7 @@ Windows SmartScreen may warn about an unsigned app the first time; choose **More
 Requirements: Windows 10/11 x64 and the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) (`winget install Microsoft.DotNet.SDK.8`).
 
 ```bat
-git clone https://github.com/OWNER/Claudius-File-Manager.git
+git clone https://github.com/ClaudiusCoder79/Claudius-File-Manager.git
 cd Claudius-File-Manager
 build.bat
 ```
@@ -85,14 +85,13 @@ The installer lands in `installer-output\ClaudiusFileManager-Setup-1.0.0.exe`. T
 
 ## Releasing
 
-Every push to `main` builds the app on GitHub Actions and attaches the exe as a downloadable artifact. To publish a release, push a version tag:
+Every push to `main` builds the app on GitHub Actions and attaches the installer and portable exe as downloadable artifacts (test builds are numbered 1.0.<run>).
 
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
+To publish a **Release** (public download page with `ClaudiusFileManager-Setup-x.y.z.exe` and the portable exe), do any one of these:
 
-The workflow builds that version and creates a GitHub Release with both the installer and the portable exe attached.
+- On GitHub, open **Actions → Build → Run workflow**, type the version (for example `1.2.0`) and click **Run workflow**.
+- Push a commit whose message contains a line `release v1.2.0`.
+- Push a tag: `git tag v1.2.0 && git push origin v1.2.0`.
 
 ## Project layout
 
