@@ -1,0 +1,22 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ClaudiusFileManager", "src\ClaudiusFileManager\ClaudiusFileManager.csproj", "{6D3B2A41-8C1E-4F2B-9A57-3E0C1B7D9F21}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6D3B2A41-8C1E-4F2B-9A57-3E0C1B7D9F21}.Debug|x64.ActiveCfg = Debug|x64
+		{6D3B2A41-8C1E-4F2B-9A57-3E0C1B7D9F21}.Debug|x64.Build.0 = Debug|x64
+		{6D3B2A41-8C1E-4F2B-9A57-3E0C1B7D9F21}.Release|x64.ActiveCfg = Release|x64
+		{6D3B2A41-8C1E-4F2B-9A57-3E0C1B7D9F21}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

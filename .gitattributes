@@ -1,0 +1,23 @@
+# Normalise line endings in the repo; check out with native endings.
+* text=auto
+
+# Windows-only files must keep CRLF
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.sln   text eol=crlf
+*.iss   text eol=crlf
+
+# Source
+*.cs    text diff=csharp
+*.xaml  text
+*.csproj text
+*.manifest text
+*.md    text
+
+# Binaries
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.gif   binary
+
+*.txt   text eol=crlf
