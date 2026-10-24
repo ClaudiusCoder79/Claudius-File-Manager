@@ -473,4 +473,21 @@ public partial class PreviewWindow : Window
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => HideByUser();
+
+    // The title bar is ordinary window content (not a system caption), so its × button always gets the click.
+    private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject d && FindButton(d)) return;
+        try { DragMove(); } catch { /* mouse already released */ }
+    }
+
+    private static bool FindButton(DependencyObject? d)
+    {
+        while (d != null)
+        {
+            if (d is System.Windows.Controls.Button) return true;
+            d = d is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d);
+        }
+        return false;
+    }
 }
