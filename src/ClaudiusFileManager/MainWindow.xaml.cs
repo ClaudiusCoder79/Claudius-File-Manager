@@ -26,6 +26,7 @@ public partial class MainWindow : Window
             p.CommandRequested += (panel, cmd) => { SetActive(panel); Execute(cmd); };
             p.FilesDropped += OnFilesDropped;
             p.Navigated += panel => { if (panel == _active) Nav.Highlight(panel.CurrentPath); };
+            p.CursorChanged += panel => { if (panel == _active) UpdatePreview(); };
         }
 
         // Navigation pane: open the clicked place in the active panel
@@ -51,7 +52,11 @@ public partial class MainWindow : Window
         };
 
         Loaded += OnLoaded;
-        Closing += (_, _) => SaveSettings();
+        Closing += (_, _) =>
+        {
+            SaveSettings();
+            _preview?.CloseForReal();
+        };
         StateChanged += (_, _) => UpdateMaxState();
     }
 
@@ -82,6 +87,7 @@ public partial class MainWindow : Window
         LeftPanel.ShowFolderSizes = RightPanel.ShowFolderSizes = S.ShowFolderSizes;
         FolderSizeSwitch.IsChecked = S.ShowFolderSizes;
         NavPaneSwitch.IsChecked = S.ShowNavPane;
+        PreviewSwitch.IsChecked = S.ShowPreview;
         ApplyNavPane(S.ShowNavPane);
 
         switch (ThemeManager.Mode)
@@ -112,6 +118,8 @@ public partial class MainWindow : Window
         S.ShowHidden = HiddenSwitch.IsChecked == true;
         S.ShowFolderSizes = FolderSizeSwitch.IsChecked == true;
         S.ShowNavPane = NavPaneSwitch.IsChecked == true;
+        S.ShowPreview = PreviewSwitch.IsChecked == true;
+        _preview?.SaveGeometry();
         if (S.ShowNavPane && NavColumn.ActualWidth > 0) S.NavPaneWidth = NavColumn.ActualWidth;
         S.Maximized = WindowState == WindowState.Maximized;
         S.Theme = ThemeManager.Mode.ToString();
@@ -139,6 +147,7 @@ public partial class MainWindow : Window
         LeftPanel.SetActive(p == LeftPanel);
         RightPanel.SetActive(p == RightPanel);
         Nav.Highlight(p.CurrentPath);
+        UpdatePreview();
     }
 
     // ───────────────────────── ribbon ─────────────────────────
@@ -181,6 +190,32 @@ public partial class MainWindow : Window
             menu.Items.Add(item);
         }
         menu.IsOpen = true;
+    }
+
+    // ───────────────────────── preview window (Quick View) ─────────────────────────
+
+    private PreviewWindow? _preview;
+
+    private void PreviewSwitch_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) { Loaded += (_, _) => PreviewSwitch_Changed(sender, e); return; }
+        if (PreviewSwitch.IsChecked == true)
+        {
+            if (_preview == null)
+            {
+                _preview = new PreviewWindow { Owner = this };
+                _preview.UserClosed += () => PreviewSwitch.IsChecked = false;
+                _preview.PlaceNear(this);
+            }
+            if (!_preview.IsVisible) _preview.Show();
+            UpdatePreview();
+        }
+        else _preview?.Park();
+    }
+
+    private void UpdatePreview()
+    {
+        if (_preview is { IsVisible: true } && _active != null) _preview.ShowItem(_active.CursorItem);
     }
 
     private void NavPaneSwitch_Changed(object sender, RoutedEventArgs e)
@@ -255,6 +290,7 @@ public partial class MainWindow : Window
             case Key.Delete when !inText && m == Shift: cmd = "deletePerm"; break;
             case Key.R when m == Ctrl: cmd = "refresh"; break;
             case Key.H when m == Ctrl: cmd = "hidden"; break;
+            case Key.Q when m == Ctrl: cmd = "preview"; break;
             case Key.U when m == Ctrl: cmd = "swap"; break;
             case Key.OemPlus when m == Ctrl: cmd = "samepath"; break;
             case Key.T when m == Ctrl: cmd = "terminal"; break;
@@ -298,6 +334,7 @@ public partial class MainWindow : Window
                 case "delete": Delete(p, permanent: false); break;
                 case "deletePerm": Delete(p, permanent: true); break;
                 case "refresh": p.LoadDrives(); p.Refresh(); break;
+                case "preview": PreviewSwitch.IsChecked = PreviewSwitch.IsChecked != true; break;
                 case "hidden": HiddenSwitch.IsChecked = HiddenSwitch.IsChecked != true; break;
                 case "selall": p.SelectAllItems(); break;
                 case "selnone": p.SelectNoItems(); break;

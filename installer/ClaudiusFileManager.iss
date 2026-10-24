@@ -68,10 +68,10 @@ WizardStyle=modern
 WizardImageFile={#AddBackslash(SourcePath)}wizard-large.bmp
 WizardSmallImageFile={#AddBackslash(SourcePath)}wizard-small.bmp
 ShowLanguageDialog=yes
-; 64-bit only, Windows 10 1809+ / Windows 11
+; 64-bit only, Windows 10 2004+ / Windows 11
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-MinVersion=10.0.17763
+MinVersion=10.0.19041
 ; Close a running copy before upgrading
 CloseApplications=yes
 RestartApplications=no

@@ -114,5 +114,10 @@
   "DisconnectDrive": "Trennen",
   "NetworkTip": "Verbundene Laufwerke, Netzwerkadressen und Computer",
   "ErrNetTimeout": "{0} antwortet nicht. Prüfen Sie, ob das Gerät eingeschaltet und mit dem Netzwerk verbunden ist.",
-  "NavPane": "Navigationsbereich"
+  "NavPane": "Navigationsbereich",
+  "Preview": "Vorschau",
+  "NoPreview": "Wählen Sie eine Datei aus, um hier eine Vorschau zu sehen",
+  "CantPlay": "Diese Datei kann hier nicht abgespielt werden",
+  "PageOf": "Seite {0} von {1}",
+  "Pages": "{0} Seiten"
 }

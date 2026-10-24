@@ -114,5 +114,10 @@
   "DisconnectDrive": "Desconectar",
   "NetworkTip": "Unidades asignadas, ubicaciones de red y equipos",
   "ErrNetTimeout": "{0} no responde. Comprueba que está encendido y conectado a la red.",
-  "NavPane": "Panel de navegación"
+  "NavPane": "Panel de navegación",
+  "Preview": "Vista previa",
+  "NoPreview": "Selecciona un archivo para verlo aquí",
+  "CantPlay": "Este archivo no se puede reproducir aquí",
+  "PageOf": "Página {0} de {1}",
+  "Pages": "{0} páginas"
 }

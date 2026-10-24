@@ -114,5 +114,10 @@
   "DisconnectDrive": "Déconnecter",
   "NetworkTip": "Lecteurs réseau, emplacements réseau et ordinateurs",
   "ErrNetTimeout": "{0} ne répond pas. Vérifiez qu'il est allumé et connecté au réseau.",
-  "NavPane": "Volet de navigation"
+  "NavPane": "Volet de navigation",
+  "Preview": "Aperçu",
+  "NoPreview": "Sélectionnez un fichier pour l'afficher ici",
+  "CantPlay": "Ce fichier ne peut pas être lu ici",
+  "PageOf": "Page {0} sur {1}",
+  "Pages": "{0} pages"
 }

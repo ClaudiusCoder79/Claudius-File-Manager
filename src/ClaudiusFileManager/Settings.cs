@@ -9,6 +9,13 @@ public sealed class Settings
     public bool ShowHidden { get; set; }
     public bool ShowFolderSizes { get; set; } = true;
     public bool ShowNavPane { get; set; } = true;
+    public bool ShowPreview { get; set; }
+    public double PreviewLeft { get; set; }
+    public double PreviewTop { get; set; }
+    public double PreviewWidth { get; set; }
+    public double PreviewHeight { get; set; }
+    public bool PreviewMuted { get; set; }
+    public double PreviewVolume { get; set; } = 0.8;
     public double NavPaneWidth { get; set; } = 240;
     public bool NavThisPcExpanded { get; set; }
     public double Width { get; set; } = 1320;

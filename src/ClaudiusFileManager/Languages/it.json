@@ -114,5 +114,10 @@
   "DisconnectDrive": "Disconnetti",
   "NetworkTip": "Unità di rete, percorsi di rete e computer",
   "ErrNetTimeout": "{0} non risponde. Controlla che sia acceso e connesso alla rete.",
-  "NavPane": "Riquadro di spostamento"
+  "NavPane": "Riquadro di spostamento",
+  "Preview": "Anteprima",
+  "NoPreview": "Seleziona un file per vederne qui l'anteprima",
+  "CantPlay": "Questo file non può essere riprodotto qui",
+  "PageOf": "Pagina {0} di {1}",
+  "Pages": "{0} pagine"
 }

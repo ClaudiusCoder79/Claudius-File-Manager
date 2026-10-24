@@ -1,0 +1,132 @@
+<Window x:Class="ClaudiusFileManager.PreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Preview" Width="440" Height="400" MinWidth="280" MinHeight="220"
+        ShowInTaskbar="False" ShowActivated="False" WindowStartupLocation="Manual"
+        Background="{DynamicResource BgBrush}" Foreground="{DynamicResource LabelBrush}"
+        FontFamily="{StaticResource AppFont}" UseLayoutRounding="True">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="34" ResizeBorderThickness="6" GlassFrameThickness="0"
+                      CornerRadius="0" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Border BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="34"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title bar -->
+            <Grid Background="{DynamicResource ChromeBrush}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="&#xE8FF;" FontFamily="{StaticResource IconFont}" FontSize="13" Margin="12,0,8,0"
+                           VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
+                <TextBlock x:Name="TitleText" Grid.Column="1" FontSize="12.5" FontWeight="SemiBold"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <Button Grid.Column="2" Style="{StaticResource CloseCaptionButton}" Height="34"
+                        Click="Close_Click" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Style="{StaticResource Glyph}" Text="&#xE8BB;" FontSize="10"/>
+                </Button>
+            </Grid>
+
+            <!-- Content -->
+            <Grid x:Name="Host" Grid.Row="1" Margin="10">
+                <Image x:Name="ImageView" Stretch="Uniform" StretchDirection="DownOnly"
+                       RenderOptions.BitmapScalingMode="HighQuality" Visibility="Collapsed"/>
+
+                <MediaElement x:Name="Media" LoadedBehavior="Manual" UnloadedBehavior="Close"
+                              Stretch="Uniform" Visibility="Collapsed"
+                              MediaOpened="Media_Opened" MediaEnded="Media_Ended" MediaFailed="Media_Failed"/>
+
+                <!-- Music: album art (or a note) + title -->
+                <StackPanel x:Name="AudioView" VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="Collapsed">
+                    <Grid Width="180" Height="180">
+                        <Border CornerRadius="16">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#FF5E8C" Offset="0"/>
+                                    <GradientStop Color="#AF52DE" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+                        <TextBlock Text="&#xE8D6;" FontFamily="{StaticResource IconFont}" FontSize="72" Foreground="White"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border CornerRadius="16" ClipToBounds="True">
+                            <Image x:Name="AlbumArt" Stretch="UniformToFill"/>
+                        </Border>
+                    </Grid>
+                    <TextBlock x:Name="AudioTitle" FontSize="14" FontWeight="SemiBold" Margin="0,12,0,0"
+                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="360"/>
+                </StackPanel>
+
+                <!-- Text and code -->
+                <TextBox x:Name="TextView" IsReadOnly="True" Visibility="Collapsed" BorderThickness="0"
+                         Background="{DynamicResource CardBrush}" Foreground="{DynamicResource LabelBrush}"
+                         FontFamily="{StaticResource MonoFont}" FontSize="12" Padding="8"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap"/>
+
+                <!-- Anything else: Windows thumbnail + name -->
+                <StackPanel x:Name="InfoView" VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="Collapsed">
+                    <Image x:Name="InfoImage" MaxWidth="260" MaxHeight="220" Stretch="Uniform"
+                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <TextBlock x:Name="InfoGlyph" FontFamily="{StaticResource IconFont}" FontSize="72"
+                               HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryLabelBrush}"/>
+                    <TextBlock x:Name="InfoName" FontSize="14" FontWeight="SemiBold" Margin="0,12,0,0"
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="360"/>
+                </StackPanel>
+
+                <TextBlock x:Name="Loading" Text="…" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{DynamicResource SecondaryLabelBrush}" Visibility="Collapsed"/>
+            </Grid>
+
+            <!-- Footer: player / page controls and file details -->
+            <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource SeparatorBrush}"
+                    Background="{DynamicResource ChromeBrush}" Padding="10,6">
+                <StackPanel>
+                    <Grid x:Name="MediaBar" Visibility="Collapsed" Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="PlayButton" Style="{StaticResource ToolButton}" Click="Play_Click" Padding="8,4">
+                            <TextBlock x:Name="PlayGlyph" Style="{StaticResource Glyph}" Text="&#xE769;" FontSize="14"/>
+                        </Button>
+                        <Slider x:Name="Seek" Grid.Column="1" VerticalAlignment="Center" Margin="6,0" Minimum="0"
+                                IsMoveToPointEnabled="True" Focusable="False"
+                                Thumb.DragStarted="Seek_DragStarted" Thumb.DragCompleted="Seek_DragCompleted"
+                                PreviewMouseLeftButtonUp="Seek_MouseUp"/>
+                        <TextBlock x:Name="TimeText" Grid.Column="2" FontSize="11.5" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource SecondaryLabelBrush}" Margin="4,0,6,0"/>
+                        <Button x:Name="MuteButton" Grid.Column="3" Style="{StaticResource ToolButton}" Click="Mute_Click" Padding="8,4">
+                            <TextBlock x:Name="MuteGlyph" Style="{StaticResource Glyph}" Text="&#xE767;" FontSize="14"/>
+                        </Button>
+                    </Grid>
+
+                    <Grid x:Name="PageBar" Visibility="Collapsed" Margin="0,0,0,4">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Button Style="{StaticResource ToolButton}" Click="PrevPage_Click" Padding="8,4">
+                                <TextBlock Style="{StaticResource Glyph}" Text="&#xE76B;" FontSize="13"/>
+                            </Button>
+                            <TextBlock x:Name="PageText" FontSize="12" VerticalAlignment="Center" Margin="10,0"/>
+                            <Button Style="{StaticResource ToolButton}" Click="NextPage_Click" Padding="8,4">
+                                <TextBlock Style="{StaticResource Glyph}" Text="&#xE76C;" FontSize="13"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock x:Name="DetailsText" FontSize="11.5" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource SecondaryLabelBrush}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

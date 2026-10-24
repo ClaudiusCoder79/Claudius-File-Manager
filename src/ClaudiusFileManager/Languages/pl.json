@@ -114,5 +114,10 @@
   "DisconnectDrive": "Odłącz dysk",
   "NetworkTip": "Zmapowane dyski, lokalizacje sieciowe i komputery",
   "ErrNetTimeout": "{0} nie odpowiada. Sprawdź, czy jest włączony i podłączony do sieci.",
-  "NavPane": "Okienko nawigacji"
+  "NavPane": "Okienko nawigacji",
+  "Preview": "Podgląd",
+  "NoPreview": "Zaznacz plik, aby zobaczyć tutaj jego podgląd",
+  "CantPlay": "Tego pliku nie można tu odtworzyć",
+  "PageOf": "Strona {0} z {1}",
+  "Pages": "Stron: {0}"
 }

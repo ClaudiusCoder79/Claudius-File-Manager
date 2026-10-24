@@ -169,6 +169,10 @@
                                       local:Rb.Tile="{StaticResource TileGray}" local:Rb.Glyph="&#xE890;"
                                       Content="{DynamicResource L.HiddenFiles}" ToolTip="Ctrl+H"
                                       Checked="HiddenSwitch_Changed" Unchecked="HiddenSwitch_Changed"/>
+                        <ToggleButton x:Name="PreviewSwitch" Style="{StaticResource RibbonToggle}"
+                                      local:Rb.Tile="{StaticResource TileTeal}" local:Rb.Glyph="&#xE8FF;"
+                                      Content="{DynamicResource L.Preview}" ToolTip="Ctrl+Q"
+                                      Checked="PreviewSwitch_Changed" Unchecked="PreviewSwitch_Changed"/>
                         <ToggleButton x:Name="NavPaneSwitch" Style="{StaticResource RibbonToggle}"
                                       local:Rb.Tile="{StaticResource TileIndigo}" local:Rb.Glyph="&#xE8A0;"
                                       Content="{DynamicResource L.NavPane}"

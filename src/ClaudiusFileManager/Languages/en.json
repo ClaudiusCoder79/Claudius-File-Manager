@@ -114,5 +114,10 @@
   "DisconnectDrive": "Disconnect",
   "NetworkTip": "Mapped drives, network locations and computers",
   "ErrNetTimeout": "{0} did not answer. Check that it is switched on and connected to the network.",
-  "NavPane": "Navigation pane"
+  "NavPane": "Navigation pane",
+  "Preview": "Preview",
+  "NoPreview": "Select a file to preview it here",
+  "CantPlay": "This file can't be played here",
+  "PageOf": "Page {0} of {1}",
+  "Pages": "{0} pages"
 }

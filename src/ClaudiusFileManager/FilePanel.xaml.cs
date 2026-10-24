@@ -15,6 +15,8 @@ public partial class FilePanel : UserControl
     public event EventHandler? Activated;
     /// <summary>Raised after the panel shows a new folder.</summary>
     public event Action<FilePanel>? Navigated;
+    /// <summary>Raised when the cursor or selection moves to another item (drives the Preview window).</summary>
+    public event Action<FilePanel>? CursorChanged;
     public event Action<FilePanel, string>? CommandRequested;
     public event Action<FilePanel, string[], string, bool>? FilesDropped;
 
@@ -46,6 +48,11 @@ public partial class FilePanel : UserControl
         IsKeyboardFocusWithinChanged += (_, e) => { if ((bool)e.NewValue) Activated?.Invoke(this, EventArgs.Empty); };
         Unloaded += (_, _) => { _watcher?.Dispose(); _sizeCts?.Cancel(); };
         Loc.Changed += OnLanguageChanged;
+        // The cursor can move without the selection changing (Insert key, clicks with Ctrl): report that too.
+        FileList.AddHandler(UIElement.GotKeyboardFocusEvent, new KeyboardFocusChangedEventHandler((_, e) =>
+        {
+            if (e.NewFocus is ListBoxItem) CursorChanged?.Invoke(this);
+        }), true);
         LoadDrives();
         UpdateHeaders();
     }
@@ -683,7 +690,11 @@ public partial class FilePanel : UserControl
             Open(it);
     }
 
-    private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateStatus();
+    private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateStatus();
+        CursorChanged?.Invoke(this);
+    }
 
     private void Ctx_Click(object sender, RoutedEventArgs e)
     {
