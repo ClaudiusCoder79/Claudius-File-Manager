@@ -13,7 +13,8 @@ public sealed class IosDialog : Window
     private int _choice = -1;
 
     private IosDialog(Window? owner, string title, string message, string? initial, string okText,
-                      bool destructive, bool showCancel, int selectLength, bool wide, string[]? choices = null)
+                      bool destructive, bool showCancel, int selectLength, bool wide, string[]? choices = null,
+                      int selectStart = 0)
     {
         if (owner is { IsLoaded: true }) Owner = owner;
         WindowStyle = WindowStyle.None;
@@ -60,7 +61,13 @@ public sealed class IosDialog : Window
             Loaded += (_, _) =>
             {
                 _input.Focus();
-                if (selectLength >= 0) _input.Select(0, selectLength); else _input.SelectAll();
+                if (selectLength >= 0)
+                {
+                    _input.Select(selectStart, selectLength);
+                    // Long paths: scroll so the selected part is in view.
+                    if (selectStart > 0) _input.ScrollToHorizontalOffset(double.MaxValue);
+                }
+                else _input.SelectAll();
             };
         }
 
@@ -153,9 +160,9 @@ public sealed class IosDialog : Window
         new IosDialog(owner, title, message, null, okText, destructive, true, -1, false).ShowDialog() == true;
 
     public static string? Prompt(Window? owner, string title, string message, string initial, string okText,
-                                 int selectLength = -1)
+                                 int selectLength = -1, int selectStart = 0)
     {
-        var d = new IosDialog(owner, title, message, initial, okText, false, true, selectLength, false);
+        var d = new IosDialog(owner, title, message, initial, okText, false, true, selectLength, false, null, selectStart);
         return d.ShowDialog() == true ? d._input!.Text : null;
     }
 

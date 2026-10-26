@@ -143,7 +143,7 @@
   "NoZipSelected": "Sélectionnez un fichier ZIP",
   "NoZipSelectedMsg": "Extraire fonctionne avec les fichiers .zip. Pour en créer un, sélectionnez des fichiers et dossiers puis Compresser (Alt+F5).",
   "DeleteFromArchiveTitle": "Supprimer {0} de l’archive ?",
-  "DeleteFromArchiveMsg": "Ils seront retirés du fichier ZIP. Action irréversible.",
+  "DeleteFromArchiveMsg": "Cela les retire du fichier ZIP. Action irréversible.",
   "AddToArchiveTitle": "Ajouter {0} à « {1} » ?",
   "ErrArchiveToArchive": "La copie directe d’une archive vers une autre n’est pas prise en charge. Extrayez-la d’abord dans un dossier.",
   "ErrBadZip": "« {0} » n’est pas une archive ZIP valide ou est endommagé.",

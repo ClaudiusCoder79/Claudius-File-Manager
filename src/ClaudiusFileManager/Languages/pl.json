@@ -143,7 +143,7 @@
   "NoZipSelected": "Zaznacz plik ZIP",
   "NoZipSelectedMsg": "Rozpakowywać można pliki .zip. Aby utworzyć archiwum, zaznacz pliki i foldery i wybierz Spakuj (Alt+F5).",
   "DeleteFromArchiveTitle": "Usunąć {0} z archiwum?",
-  "DeleteFromArchiveMsg": "Zostaną usunięte z pliku ZIP. Tej operacji nie można cofnąć.",
+  "DeleteFromArchiveMsg": "Elementy zostaną usunięte z pliku ZIP. Tej operacji nie można cofnąć.",
   "AddToArchiveTitle": "Dodać {0} do „{1}”?",
   "ErrArchiveToArchive": "Kopiowanie z jednego archiwum bezpośrednio do drugiego nie jest obsługiwane. Najpierw rozpakuj je do folderu.",
   "ErrBadZip": "„{0}” nie jest prawidłowym archiwum ZIP lub jest uszkodzony.",

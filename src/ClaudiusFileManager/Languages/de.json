@@ -143,7 +143,7 @@
   "NoZipSelected": "ZIP-Datei auswählen",
   "NoZipSelectedMsg": "Entpacken funktioniert mit .zip-Dateien. Zum Erstellen Dateien und Ordner auswählen und Zippen (Alt+F5) wählen.",
   "DeleteFromArchiveTitle": "{0} aus dem Archiv löschen?",
-  "DeleteFromArchiveMsg": "Sie werden aus der ZIP-Datei entfernt. Dies kann nicht rückgängig gemacht werden.",
+  "DeleteFromArchiveMsg": "Dies entfernt sie aus der ZIP-Datei und kann nicht rückgängig gemacht werden.",
   "AddToArchiveTitle": "{0} zu „{1}“ hinzufügen?",
   "ErrArchiveToArchive": "Direktes Kopieren von einem Archiv in ein anderes wird nicht unterstützt. Entpacken Sie es zuerst in einen Ordner.",
   "ErrBadZip": "„{0}“ ist kein gültiges ZIP-Archiv oder beschädigt.",

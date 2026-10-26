@@ -410,7 +410,7 @@ public partial class MainWindow : Window
         else if (toZip)
         {
             var paths = items.Select(i => i.FullPath).ToList();
-            if (AddToArchive(zip, inner, paths) && move) ShellOps.Delete(this, paths, permanent: false);
+            if (AddToArchive(zip, inner, paths, confirm: false) && move) ShellOps.Delete(this, paths, permanent: false);
         }
         else
         {
@@ -450,8 +450,10 @@ public partial class MainWindow : Window
             ? other.CurrentPath : p.CurrentPath;
         var suggestion = Path.Combine(folder, baseName + ".zip");
 
+        // Select just the archive name, so typing replaces it but keeps the folder.
+        int nameStart = suggestion.Length - baseName.Length - 4;
         var answer = IosDialog.Prompt(this, Loc.F("PackTitle", Describe(items)), Loc.T("PackMsg"), suggestion,
-                                      Loc.T("Pack"), suggestion.Length - 4)?.Trim().Trim('"');
+                                      Loc.T("Pack"), baseName.Length, nameStart)?.Trim().Trim('"');
         if (string.IsNullOrEmpty(answer)) return;
         var zipPath = Path.GetFullPath(Path.Combine(p.CurrentPath, Environment.ExpandEnvironmentVariables(answer)));
         if (!ZipOps.IsZipName(zipPath)) zipPath += ".zip";
@@ -570,11 +572,11 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Copies files into a ZIP (the target panel or folder is inside an archive).</summary>
-    private bool AddToArchive(string zip, string inner, List<string> paths)
+    private bool AddToArchive(string zip, string inner, List<string> paths, bool confirm = true)
     {
         if (paths.Count == 0) return false;
         var what = paths.Count == 1 ? $"“{Path.GetFileName(paths[0])}”" : Loc.F("NItems", paths.Count);
-        if (!IosDialog.Confirm(this, Loc.F("AddToArchiveTitle", what, Path.GetFileName(zip)), "", Loc.T("AddToArchive")))
+        if (confirm && !IosDialog.Confirm(this, Loc.F("AddToArchiveTitle", what, Path.GetFileName(zip)), "", Loc.T("AddToArchive")))
             return false;
         bool ok = ProgressWindow.Run(this, Loc.T("Packing"), (progress, ct) => ZipOps.Add(zip, inner, paths, progress, ct));
         LeftPanel.Refresh();
