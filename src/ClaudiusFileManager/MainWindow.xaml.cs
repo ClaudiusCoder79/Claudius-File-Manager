@@ -52,6 +52,7 @@ public partial class MainWindow : Window
         };
 
         Loaded += OnLoaded;
+        Task.Run(ZipOps.CleanTemp);   // temporary copies of files opened from ZIPs
         Closing += (_, _) =>
         {
             SaveSettings();
@@ -282,6 +283,8 @@ public partial class MainWindow : Window
             case Key.F4 when m == None: cmd = "edit"; break;
             case Key.F4 when m == Shift: cmd = "newfile"; break;
             case Key.F5 when m == None: cmd = "copy"; break;
+            case Key.F5 when m == ModifierKeys.Alt: cmd = "pack"; break;
+            case Key.F9 when m == ModifierKeys.Alt: cmd = "unpack"; break;
             case Key.F6 when m == Shift: cmd = "rename"; break;
             case Key.F6 when m == None: cmd = "move"; break;
             case Key.F7 when m == None: cmd = "mkdir"; break;
@@ -328,6 +331,8 @@ public partial class MainWindow : Window
                 case "view": View(p); break;
                 case "edit": Edit(p); break;
                 case "copy": Transfer(p, Other, move: false); break;
+                case "pack": Pack(p); break;
+                case "unpack": Unpack(p); break;
                 case "move": Transfer(p, Other, move: true); break;
                 case "mkdir": NewFolder(p); break;
                 case "newfile": NewFile(p); break;
@@ -346,13 +351,14 @@ public partial class MainWindow : Window
                     RightPanel.Navigate(a);
                     break;
                 case "samepath": Other.Navigate(p.CurrentPath); break;
-                case "terminal": OpenTerminal(p.CurrentPath); break;
+                case "terminal": OpenTerminal(RealFolder(p)); break;
                 case "explorer": ShowInExplorer(p); break;
                 case "properties":
-                    var target = p.CursorItem is { IsParent: false } ci ? ci.FullPath : p.CurrentPath;
+                    var target = p.CursorItem is { IsParent: false, IsInArchive: false } ci ? ci.FullPath : p.CurrentPath;
+                    if (ZipOps.TrySplit(target, out var propZip, out _)) target = propZip;
                     ShellOps.ShowProperties(this, target);
                     break;
-                case "foldersize": FolderSizeOf(p); break;
+                case "foldersize": if (!p.InArchive) FolderSizeOf(p); break;
                 case "network": p.Navigate(NetworkOps.NetRoot); break;
                 case "mapdrive":
                     if (NetworkOps.MapDriveDialog(new WindowInteropHelper(this).Handle)) DrivesChanged();
@@ -391,12 +397,189 @@ public partial class MainWindow : Window
                                       dst.CurrentPath, Loc.T(move ? "Move" : "Copy"));
         if (string.IsNullOrWhiteSpace(target)) return;
         target = Environment.ExpandEnvironmentVariables(target.Trim().Trim('"'));
-        target = Path.GetFullPath(Path.Combine(src.CurrentPath, target));
+        target = Path.GetFullPath(Path.Combine(RealFolder(src), target));
 
-        var paths = items.Select(i => i.FullPath).ToList();
-        if (move) ShellOps.Move(this, paths, target); else ShellOps.Copy(this, paths, target);
+        bool toZip = ZipOps.TrySplit(target, out var zip, out var inner);
+        if (src.InArchive)
+        {
+            // Copying out of a ZIP = unpacking the selected items.
+            if (toZip) { IosDialog.Alert(this, Loc.T("ErrGeneric"), Loc.T("ErrArchiveToArchive")); return; }
+            if (ExtractItems(items, target) && move)
+                ProgressWindow.Run(this, Loc.T("Deleting"), (_, ct) => ZipOps.Delete(items[0].Archive!, items.Select(i => i.InnerPath).ToList(), ct));
+        }
+        else if (toZip)
+        {
+            var paths = items.Select(i => i.FullPath).ToList();
+            if (AddToArchive(zip, inner, paths) && move) ShellOps.Delete(this, paths, permanent: false);
+        }
+        else
+        {
+            var paths = items.Select(i => i.FullPath).ToList();
+            if (move) ShellOps.Move(this, paths, target); else ShellOps.Copy(this, paths, target);
+        }
         src.Refresh();
         dst.Refresh();
+    }
+
+    /// <summary>The panel's folder on disk (for a panel inside a ZIP: the folder holding the ZIP).</summary>
+    private static string RealFolder(FilePanel p) =>
+        ZipOps.TrySplit(p.CurrentPath, out var zip, out _) ? Path.GetDirectoryName(zip)! : p.CurrentPath;
+
+    // ───────────────────────── ZIP ─────────────────────────
+
+    private bool NotInArchive(FilePanel p)
+    {
+        if (!p.InArchive) return true;
+        IosDialog.Alert(this, Loc.T("ArchiveReadOnly"), Loc.T("ArchiveReadOnlyMsg"));
+        return false;
+    }
+
+    /// <summary>Alt+F5: packs the selected files and folders into a ZIP archive.</summary>
+    private void Pack(FilePanel p)
+    {
+        if (!NotInArchive(p)) return;
+        var items = p.GetSelection();
+        if (items.Count == 0) return;
+
+        string baseName = items.Count == 1
+            ? (items[0].IsDir ? items[0].Name : Path.GetFileNameWithoutExtension(items[0].Name))
+            : Path.GetFileName(Path.TrimEndingDirectorySeparator(p.CurrentPath));
+        if (string.IsNullOrEmpty(baseName)) baseName = "Archive";
+        var other = Other;
+        string folder = !other.InArchive && !NetworkOps.IsVirtualPath(other.CurrentPath) && Directory.Exists(other.CurrentPath)
+            ? other.CurrentPath : p.CurrentPath;
+        var suggestion = Path.Combine(folder, baseName + ".zip");
+
+        var answer = IosDialog.Prompt(this, Loc.F("PackTitle", Describe(items)), Loc.T("PackMsg"), suggestion,
+                                      Loc.T("Pack"), suggestion.Length - 4)?.Trim().Trim('"');
+        if (string.IsNullOrEmpty(answer)) return;
+        var zipPath = Path.GetFullPath(Path.Combine(p.CurrentPath, Environment.ExpandEnvironmentVariables(answer)));
+        if (!ZipOps.IsZipName(zipPath)) zipPath += ".zip";
+        var sources = items.Select(i => i.FullPath).ToList();
+        if (sources.Any(s => ShellOps.SamePath(s, zipPath))) return;
+
+        bool add = false;
+        if (File.Exists(zipPath))
+        {
+            int c = IosDialog.Choice(this, Loc.F("ZipExistsTitle", Path.GetFileName(zipPath)), Loc.T("ZipExistsMsg"),
+                                     Loc.T("AddToArchive"), Loc.T("Replace"));
+            if (c < 0) return;
+            add = c == 0;
+        }
+        Directory.CreateDirectory(Path.GetDirectoryName(zipPath)!);
+        bool done = ProgressWindow.Run(this, Loc.T("Packing"), (progress, ct) =>
+        {
+            if (add) ZipOps.Add(zipPath, "", sources, progress, ct);
+            else ZipOps.Create(zipPath, sources, progress, ct);
+        });
+
+        LeftPanel.Refresh();
+        RightPanel.Refresh();
+        if (done)
+            foreach (var panel in new[] { other, p })
+                if (ShellOps.SamePath(panel.CurrentPath, Path.GetDirectoryName(zipPath)))
+                {
+                    panel.SelectByName(Path.GetFileName(zipPath));
+                    if (panel == _active) panel.FocusList(Path.GetFileName(zipPath));
+                    break;
+                }
+    }
+
+    /// <summary>Alt+F9: unpacks the selected ZIP files (or, inside an archive, the selected items).</summary>
+    private void Unpack(FilePanel p)
+    {
+        var items = p.GetSelection();
+        var other = Other;
+        string suggestion = !other.InArchive && !NetworkOps.IsVirtualPath(other.CurrentPath) ? other.CurrentPath : RealFolder(p);
+
+        if (p.InArchive)
+        {
+            if (items.Count == 0) return;
+            var to = AskFolder(Loc.F("UnpackTitle", Describe(items)), suggestion);
+            if (to == null) return;
+            ExtractItems(items, to);
+            other.Refresh();
+            return;
+        }
+
+        var zips = items.Where(i => !i.IsDir && ZipOps.IsZipName(i.Name)).ToList();
+        if (zips.Count == 0)
+        {
+            IosDialog.Alert(this, Loc.T("NoZipSelected"), Loc.T("NoZipSelectedMsg"));
+            return;
+        }
+        var dest = AskFolder(Loc.F("UnpackTitle", Describe(zips)), suggestion);
+        if (dest == null) return;
+
+        // Work out every file first, so the user is asked about existing files only once.
+        var jobs = new List<(string Zip, List<(string Entry, string Target, bool IsDir, long Size)> Plan)>();
+        Mouse.OverrideCursor = Cursors.Wait;
+        try
+        {
+            foreach (var z in zips)
+            {
+                try { jobs.Add((z.FullPath, ZipOps.Plan(z.FullPath, new[] { "" }, ZipOps.TargetFor(z.FullPath, dest)))); }
+                catch (InvalidDataException) { throw new IOException(Loc.F("ErrBadZip", z.Name)); }
+            }
+        }
+        finally { Mouse.OverrideCursor = null; }
+
+        bool? overwrite = AskOverwrite(jobs.SelectMany(j => j.Plan));
+        if (overwrite == null) return;
+        ProgressWindow.Run(this, Loc.T("Unpacking"), (progress, ct) =>
+        {
+            for (int i = 0; i < jobs.Count; i++)
+            {
+                int index = i;
+                ZipOps.Extract(jobs[i].Zip, jobs[i].Plan, overwrite.Value,
+                               (f, n) => progress((index + f) / jobs.Count, n), ct);
+            }
+        });
+        LeftPanel.Refresh();
+        RightPanel.Refresh();
+    }
+
+    private string? AskFolder(string title, string suggestion)
+    {
+        var answer = IosDialog.Prompt(this, title, Loc.T("ToFolder"), suggestion, Loc.T("Unpack"))?.Trim().Trim('"');
+        if (string.IsNullOrEmpty(answer)) return null;
+        var full = Path.GetFullPath(Path.Combine(RealFolder(_active), Environment.ExpandEnvironmentVariables(answer)));
+        if (ZipOps.IsInside(full)) { IosDialog.Alert(this, Loc.T("ErrGeneric"), Loc.T("ErrArchiveToArchive")); return null; }
+        return full;
+    }
+
+    /// <summary>null = cancelled, true = replace existing files, false = keep them.</summary>
+    private bool? AskOverwrite(IEnumerable<(string Entry, string Target, bool IsDir, long Size)> plan)
+    {
+        int existing = plan.Count(x => !x.IsDir && File.Exists(x.Target));
+        if (existing == 0) return true;
+        int c = IosDialog.Choice(this, Loc.F("ConflictTitle", existing), Loc.T("ConflictMsg"),
+                                 Loc.T("Replace"), Loc.T("Skip"));
+        return c < 0 ? null : c == 0;
+    }
+
+    /// <summary>Unpacks items shown inside an archive into a folder. Returns false if cancelled.</summary>
+    private bool ExtractItems(List<FileItem> items, string destDir)
+    {
+        var zip = items[0].Archive!;
+        var plan = ZipOps.Plan(zip, items.Select(i => i.InnerPath).ToList(), destDir);
+        var overwrite = AskOverwrite(plan);
+        if (overwrite == null) return false;
+        Directory.CreateDirectory(destDir);
+        return ProgressWindow.Run(this, Loc.T("Unpacking"), (progress, ct) => ZipOps.Extract(zip, plan, overwrite.Value, progress, ct));
+    }
+
+    /// <summary>Copies files into a ZIP (the target panel or folder is inside an archive).</summary>
+    private bool AddToArchive(string zip, string inner, List<string> paths)
+    {
+        if (paths.Count == 0) return false;
+        var what = paths.Count == 1 ? $"“{Path.GetFileName(paths[0])}”" : Loc.F("NItems", paths.Count);
+        if (!IosDialog.Confirm(this, Loc.F("AddToArchiveTitle", what, Path.GetFileName(zip)), "", Loc.T("AddToArchive")))
+            return false;
+        bool ok = ProgressWindow.Run(this, Loc.T("Packing"), (progress, ct) => ZipOps.Add(zip, inner, paths, progress, ct));
+        LeftPanel.Refresh();
+        RightPanel.Refresh();
+        return ok;
     }
 
     private void OnFilesDropped(FilePanel panel, string[] paths, string dest, bool move)
@@ -407,7 +590,11 @@ public partial class MainWindow : Window
         SetActive(panel);
         try
         {
-            if (move) ShellOps.Move(this, paths, dest); else ShellOps.Copy(this, paths, dest);
+            if (ZipOps.TrySplit(dest, out var zip, out var inner))
+            {
+                if (AddToArchive(zip, inner, paths.ToList()) && move) ShellOps.Delete(this, paths, permanent: false);
+            }
+            else if (move) ShellOps.Move(this, paths, dest); else ShellOps.Copy(this, paths, dest);
         }
         catch (Exception ex) { IosDialog.Alert(this, Loc.T("ErrGeneric"), ex.Message); }
         LeftPanel.Refresh();
@@ -418,6 +605,14 @@ public partial class MainWindow : Window
     {
         var items = p.GetSelection();
         if (items.Count == 0) return;
+        if (p.InArchive)
+        {
+            if (!IosDialog.Confirm(this, Loc.F("DeleteFromArchiveTitle", Describe(items)), Loc.T("DeleteFromArchiveMsg"),
+                                   Loc.T("Delete"), destructive: true)) return;
+            ProgressWindow.Run(this, Loc.T("Deleting"), (_, ct) => ZipOps.Delete(items[0].Archive!, items.Select(i => i.InnerPath).ToList(), ct));
+            p.Refresh();
+            return;
+        }
         bool ok = IosDialog.Confirm(this,
             Loc.F(permanent ? "DeletePermTitle" : "DeleteRecycleTitle", Describe(items)),
             Loc.T(permanent ? "DeletePermMsg" : "DeleteRecycleMsg"),
@@ -448,7 +643,7 @@ public partial class MainWindow : Window
     private void Rename(FilePanel p)
     {
         var it = p.CursorItem;
-        if (it is null || it.IsParent || it.IsVirtual) return;
+        if (it is null || it.IsParent || it.IsVirtual || !NotInArchive(p)) return;
         int selLen = !it.IsDir && it.Ext.Length > 0 ? it.Name.Length - it.Ext.Length - 1 : -1;
         var name = IosDialog.Prompt(this, Loc.T("RenameTitle"), "", it.Name, Loc.T("Rename"), selLen)?.Trim();
         if (string.IsNullOrEmpty(name) || name == it.Name || !ValidName(name, false)) return;
@@ -474,6 +669,7 @@ public partial class MainWindow : Window
 
     private void NewFolder(FilePanel p)
     {
+        if (!NotInArchive(p)) return;
         var name = IosDialog.Prompt(this, Loc.T("NewFolderTitle"), Loc.T("NewFolderMsg"),
                                     Loc.T("NewFolderDefault"), Loc.T("Create"))?.Trim();
         if (string.IsNullOrEmpty(name) || !ValidName(name, true)) return;
@@ -486,6 +682,7 @@ public partial class MainWindow : Window
 
     private void NewFile(FilePanel p)
     {
+        if (!NotInArchive(p)) return;
         var baseName = Loc.T("NewFileDefault");
         var name = IosDialog.Prompt(this, Loc.T("NewFileTitle"), Loc.T("NewFileMsg"), baseName + ".txt",
                                     Loc.T("Create"), baseName.Length)?.Trim();
@@ -502,10 +699,11 @@ public partial class MainWindow : Window
     {
         var it = p.CursorItem;
         if (it is null || it.IsParent || it.IsVirtual) return;
-        if (it.IsDir) { FolderSizeOf(p); return; }   // like Total Commander: F3 on a folder = its size
+        if (it.IsDir) { if (!it.IsInArchive) FolderSizeOf(p); return; }   // like Total Commander: F3 on a folder = its size
         try
         {
-            new ViewerWindow(it.FullPath) { Owner = this }.Show();
+            var path = it.IsInArchive ? ZipOps.ExtractToTemp(it.Archive!, it.InnerPath) : it.FullPath;
+            new ViewerWindow(path) { Owner = this }.Show();
         }
         catch (Exception ex)
         {
@@ -536,6 +734,7 @@ public partial class MainWindow : Window
     {
         var it = p.CursorItem;
         if (it is null || it.IsDir) return;
+        if (!NotInArchive(p)) return;
         Process.Start(new ProcessStartInfo("notepad.exe", $"\"{it.FullPath}\"") { UseShellExecute = true });
     }
 
@@ -556,15 +755,28 @@ public partial class MainWindow : Window
     private static void ShowInExplorer(FilePanel p)
     {
         var it = p.CursorItem;
-        var args = it is { IsParent: false } ? $"/select,\"{it.FullPath}\"" : $"\"{p.CurrentPath}\"";
+        var args = ZipOps.TrySplit(p.CurrentPath, out var zip, out _) ? $"/select,\"{zip}\""
+                 : it is { IsParent: false } ? $"/select,\"{it.FullPath}\"" : $"\"{p.CurrentPath}\"";
         Process.Start(new ProcessStartInfo("explorer.exe", args) { UseShellExecute = true });
     }
 
     // Clipboard interop with Explorer (Ctrl+C / Ctrl+X / Ctrl+V)
-    private static void ClipboardSet(FilePanel p, bool cut)
+    private void ClipboardSet(FilePanel p, bool cut)
     {
-        var paths = p.GetSelection().Select(i => i.FullPath).ToArray();
-        if (paths.Length == 0) return;
+        var sel = p.GetSelection();
+        if (sel.Count == 0) return;
+        string[] paths;
+        if (p.InArchive)
+        {
+            // Unpack to a temporary folder, so the files can be pasted anywhere (Explorer, e-mail …).
+            if (cut) { NotInArchive(p); return; }
+            var tmp = Path.Combine(ZipOps.TempRoot, "clip-" + Guid.NewGuid().ToString("N")[..8]);
+            var plan = ZipOps.Plan(sel[0].Archive!, sel.Select(i => i.InnerPath).ToList(), tmp);
+            if (!ProgressWindow.Run(this, Loc.T("Unpacking"), (progress, ct) => ZipOps.Extract(sel[0].Archive!, plan, true, progress, ct)))
+                return;
+            paths = sel.Select(i => Path.Combine(tmp, i.Name)).ToArray();
+        }
+        else paths = sel.Select(i => i.FullPath).ToArray();
         var data = new DataObject(DataFormats.FileDrop, paths);
         // DROPEFFECT_MOVE = 2, DROPEFFECT_COPY|LINK = 5 (what Explorer uses)
         data.SetData("Preferred DropEffect", new MemoryStream(BitConverter.GetBytes(cut ? 2 : 5)));
@@ -592,7 +804,15 @@ public partial class MainWindow : Window
         }
         catch { /* treat as copy */ }
 
-        if (move)
+        if (ZipOps.TrySplit(p.CurrentPath, out var zip, out var inner))
+        {
+            if (AddToArchive(zip, inner, files) && move)
+            {
+                ShellOps.Delete(this, files, permanent: false);
+                Clipboard.Clear();
+            }
+        }
+        else if (move)
         {
             if (ShellOps.Move(this, files, p.CurrentPath)) Clipboard.Clear();
         }

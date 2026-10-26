@@ -10,9 +10,10 @@ namespace ClaudiusFileManager;
 public sealed class IosDialog : Window
 {
     private readonly TextBox? _input;
+    private int _choice = -1;
 
     private IosDialog(Window? owner, string title, string message, string? initial, string okText,
-                      bool destructive, bool showCancel, int selectLength, bool wide)
+                      bool destructive, bool showCancel, int selectLength, bool wide, string[]? choices = null)
     {
         if (owner is { IsLoaded: true }) Owner = owner;
         WindowStyle = WindowStyle.None;
@@ -67,6 +68,31 @@ public sealed class IosDialog : Window
         sep.SetResourceReference(Border.BackgroundProperty, "DialogSeparatorBrush");
         stack.Children.Add(sep);
 
+        if (choices != null)
+        {
+            // iOS action-style alert: one full-width button per choice, then Cancel.
+            for (int i = 0; i <= choices.Length; i++)
+            {
+                if (i > 0)
+                {
+                    var hs = new Border { Height = 1 };
+                    hs.SetResourceReference(Border.BackgroundProperty, "DialogSeparatorBrush");
+                    stack.Children.Add(hs);
+                }
+                bool cancel = i == choices.Length;
+                var b = MakeButton(cancel ? Loc.T("Cancel") : choices[i], "AccentBrush", bold: i == 0);
+                int index = i;
+                if (cancel) b.IsCancel = true;
+                else
+                {
+                    if (i == 0) b.IsDefault = true;
+                    b.Click += (_, _) => { _choice = index; DialogResult = true; };
+                }
+                stack.Children.Add(b);
+            }
+        }
+        else
+        {
         var buttons = new Grid();
         var ok = MakeButton(okText, destructive ? "RedBrush" : "AccentBrush", bold: true);
         ok.IsDefault = true;
@@ -89,6 +115,7 @@ public sealed class IosDialog : Window
         }
         buttons.Children.Add(ok);
         stack.Children.Add(buttons);
+        }
 
         var shadow = new Border
         {
@@ -130,6 +157,13 @@ public sealed class IosDialog : Window
     {
         var d = new IosDialog(owner, title, message, initial, okText, false, true, selectLength, false);
         return d.ShowDialog() == true ? d._input!.Text : null;
+    }
+
+    /// <summary>Several choices stacked like an iOS alert; returns the index chosen, or -1 for Cancel.</summary>
+    public static int Choice(Window? owner, string title, string message, params string[] choices)
+    {
+        var d = new IosDialog(owner, title, message, null, "", false, true, -1, false, choices);
+        return d.ShowDialog() == true ? d._choice : -1;
     }
 
     public static void Alert(Window? owner, string title, string message) =>

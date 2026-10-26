@@ -25,6 +25,8 @@ public partial class FilePanel : UserControl
     /// <summary>Show the total size of each folder in the Size column (measured in the background).</summary>
     public bool ShowFolderSizes { get; set; } = true;
     public bool IsActivePanel { get; private set; }
+    /// <summary>The panel is showing the inside of a ZIP archive.</summary>
+    public bool InArchive { get; private set; }
 
     private List<FileItem> _all = new();
     private List<DriveEntry> _drives = new();
@@ -159,9 +161,17 @@ public partial class FilePanel : UserControl
         string full;
         var items = new List<FileItem>();
         bool isVirtual = NetworkOps.IsVirtualPath(path);
+        bool inZip = false;
         try
         {
-            if (NetworkOps.IsNetRoot(path))
+            if (!isVirtual && ZipOps.TrySplit(path, out var zip, out var inner))
+            {
+                inZip = true;
+                zip = Path.GetFullPath(zip);
+                full = ZipOps.Combine(zip, inner);
+                BuildArchiveView(zip, inner, items);
+            }
+            else if (NetworkOps.IsNetRoot(path))
             {
                 full = NetworkOps.NetRoot;
                 BuildNetworkView(items);
@@ -204,6 +214,7 @@ public partial class FilePanel : UserControl
 
         bool folderChanged = !ShellOps.SamePath(CurrentPath, full);
         CurrentPath = full;
+        InArchive = inZip;
         _all = items;
         if (folderChanged) SearchBox.Text = "";
         ApplySort();
@@ -226,7 +237,7 @@ public partial class FilePanel : UserControl
         catch { /* ignore */ }
 
         SyncDrive();
-        if (isVirtual) { _watcher?.Dispose(); _watcher = null; }
+        if (isVirtual || inZip) { _watcher?.Dispose(); _watcher = null; }
         else if (folderChanged) Watch(full);
 
         if (selectName != null) SelectByName(selectName);
@@ -247,7 +258,7 @@ public partial class FilePanel : UserControl
         if (!ShowFolderSizes) return;
 
         var todo = new List<FileItem>();
-        foreach (var it in _all.Where(i => i.IsDir && !i.IsParent && !i.IsVirtual))
+        foreach (var it in _all.Where(i => i.IsDir && !i.IsParent && !i.IsVirtual && !i.IsInArchive))
         {
             if (FolderSizer.TryGetCached(it.FullPath, out var cached)) it.SetFolderSize(cached);
             else { it.MarkCalculating(); todo.Add(it); }
@@ -292,7 +303,7 @@ public partial class FilePanel : UserControl
     public void Refresh()
     {
         if (CurrentPath.Length == 0) return;
-        if (NetworkOps.IsVirtualPath(CurrentPath))
+        if (NetworkOps.IsVirtualPath(CurrentPath) || InArchive && ZipOps.IsInside(CurrentPath))
         {
             var keep = CursorItem?.Name;
             Navigate(CurrentPath, false, keep);
@@ -362,6 +373,14 @@ public partial class FilePanel : UserControl
     {
         if (it.IsParent) { GoUp(); return; }
         if (it.IsDir) { Navigate(it.FullPath); return; }
+        // Like Total Commander: Enter on a ZIP opens it as a folder.
+        if (!it.IsInArchive && ZipOps.IsZipName(it.Name)) { Navigate(it.FullPath); return; }
+        if (it.IsInArchive)
+        {
+            try { ShellOpen(ZipOps.ExtractToTemp(it.Archive!, it.InnerPath)); }
+            catch (Exception ex) { IosDialog.Alert(Window.GetWindow(this), Loc.T("ErrCantOpen"), ex.Message); }
+            return;
+        }
         ShellOpen(it.FullPath);
     }
 
@@ -393,6 +412,22 @@ public partial class FilePanel : UserControl
             return;
         }
         Navigate(parent.FullName, true, Path.GetFileName(CurrentPath));
+    }
+
+    // ───────────────────────── ZIP archives ─────────────────────────
+
+    private static void BuildArchiveView(string zip, string inner, List<FileItem> items)
+    {
+        Mouse.OverrideCursor = Cursors.Wait;
+        try
+        {
+            int cut = inner.LastIndexOf('/');
+            items.Add(FileItem.ParentOf(inner.Length == 0 ? Path.GetDirectoryName(zip)!
+                                                           : ZipOps.Combine(zip, cut < 0 ? "" : inner[..cut])));
+            foreach (var e in ZipOps.List(zip, inner)) items.Add(FileItem.FromArchive(zip, e));
+        }
+        catch (InvalidDataException ex) { throw new IOException(Loc.F("ErrBadZip", Path.GetFileName(zip)), ex); }
+        finally { Mouse.OverrideCursor = null; }
     }
 
     // ───────────────────────── network views ─────────────────────────
@@ -717,6 +752,7 @@ public partial class FilePanel : UserControl
             Math.Abs(delta.Y) < SystemParameters.MinimumVerticalDragDistance) return;
 
         _dragArmed = false;
+        if (InArchive) return;     // items inside a ZIP have no real path to drag
         var paths = GetSelection().Select(i => i.FullPath).ToArray();
         if (paths.Length == 0) return;
         DragDrop.DoDragDrop(FileList, new DataObject(DataFormats.FileDrop, paths),

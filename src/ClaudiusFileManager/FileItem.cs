@@ -17,6 +17,11 @@ public sealed class FileItem : INotifyPropertyChanged
     /// <summary>Not a real file or folder: a computer, network location or mapped drive in the Network view.</summary>
     public bool IsVirtual { get; private init; }
     public bool IsHidden { get; private init; }
+    /// <summary>The .zip file this item lives in (null for ordinary files).</summary>
+    public string? Archive { get; private init; }
+    /// <summary>Path inside the archive, with forward slashes (e.g. "photos/beach.jpg").</summary>
+    public string InnerPath { get; private init; } = "";
+    public bool IsInArchive => Archive != null;
     /// <summary>File length, or the total size of a folder once it has been measured (0 until then).</summary>
     public long Size { get; private set; }
     public DateTime Modified { get; private init; }
@@ -61,6 +66,26 @@ public sealed class FileItem : INotifyPropertyChanged
         Name = display, DisplayName = display, FullPath = target, IsDir = true, IsVirtual = true,
         Glyph = glyph, IconBrush = brush, Ext = ext
     };
+
+    /// <summary>A file or folder inside a ZIP archive (folder sizes are known straight away).</summary>
+    public static FileItem FromArchive(string zip, ZipOps.Entry e)
+    {
+        string name = e.Name, ext = "", display = name;
+        if (!e.IsDir)
+        {
+            int dot = name.LastIndexOf('.');
+            if (dot > 0 && dot < name.Length - 1) { ext = name[(dot + 1)..]; display = name[..dot]; }
+        }
+        var (glyph, brush) = e.IsDir ? ("\uE8B7", Palette.Folder) : IconFor(ext.ToLowerInvariant());
+        var item = new FileItem
+        {
+            Name = name, DisplayName = display, Ext = ext, IsDir = e.IsDir,
+            FullPath = ZipOps.Combine(zip, e.InnerPath), Archive = zip, InnerPath = e.InnerPath,
+            Size = e.Size, Modified = e.Modified, Glyph = glyph, IconBrush = brush
+        };
+        if (e.IsDir) { item._sizeKnown = true; }
+        return item;
+    }
 
     public static FileItem From(FileSystemInfo fsi)
     {

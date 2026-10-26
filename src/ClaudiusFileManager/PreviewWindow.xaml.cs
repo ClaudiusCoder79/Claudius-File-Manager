@@ -183,13 +183,52 @@ public partial class PreviewWindow : Window
         _baseDetails = DetailsText.Text = Details(it);
         string ext = Path.GetExtension(it.FullPath).TrimStart('.');
 
+        if (it.IsInArchive) { LoadFromArchive(it, req); return; }
         if (it.IsDir) LoadThumbnail(it, req, "");
+        else if (ext.Equals("zip", StringComparison.OrdinalIgnoreCase)) LoadZipListing(it, req);
         else if (ImageExt.Contains(ext)) LoadImage(it, req);
         else if (VideoExt.Contains(ext)) LoadMedia(it, req, video: true);
         else if (AudioExt.Contains(ext)) LoadMedia(it, req, video: false);
         else if (ext.Equals("pdf", StringComparison.OrdinalIgnoreCase)) _ = LoadPdf(it, req);
         else if (TextExt.Contains(ext) || (ext.Length == 0 && it.Size < 512 * 1024)) LoadText(it, req);
         else LoadThumbnail(it, req, "");
+    }
+
+    /// <summary>A file inside a ZIP: unpack a temporary copy, then preview that.</summary>
+    private void LoadFromArchive(FileItem it, int req)
+    {
+        if (it.IsDir) { ShowInfo(null, "\uE8B7", it.Name); return; }
+        if (it.Size > 512L * 1024 * 1024) { ShowInfo(null, "\uE7B8", it.Name); return; }   // too big to unpack just for a peek
+        Loading.Visibility = Visibility.Visible;
+        string zip = it.Archive!, inner = it.InnerPath;
+        Task.Run(() => ZipOps.ExtractToTemp(zip, inner)).ContinueWith(t => Dispatcher.InvokeAsync(() =>
+        {
+            if (req != _request) return;
+            Loading.Visibility = Visibility.Collapsed;
+            if (t.IsFaulted) { ShowInfo(null, "\uE7B8", it.Name); return; }
+            Load(FileItem.From(new FileInfo(t.Result)));
+            // Keep showing where the file really is.
+            TitleText.Text = it.Name;
+            _shownPath = it.FullPath;
+        }));
+    }
+
+    /// <summary>A ZIP file: what's inside it.</summary>
+    private void LoadZipListing(FileItem it, int req)
+    {
+        Loading.Visibility = Visibility.Visible;
+        string path = it.FullPath;
+        Task.Run(() => ZipOps.Summary(path)).ContinueWith(t => Dispatcher.InvokeAsync(() =>
+        {
+            if (req != _request) return;
+            Loading.Visibility = Visibility.Collapsed;
+            if (t.IsFaulted) { LoadThumbnail(it, req, "\uE7B8"); return; }
+            var (files, unpacked, _, lines) = t.Result;
+            AddDetail(Loc.F("ZipSummary", files, FileItem.FormatSize(unpacked)));
+            TextView.Text = string.Join("\n", lines) + (lines.Count < files ? "\n…" : "");
+            TextView.ScrollToHome();
+            TextView.Visibility = Visibility.Visible;
+        }));
     }
 
     private static string Details(FileItem it)

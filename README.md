@@ -37,6 +37,7 @@ Windows SmartScreen may warn about an unsigned app the first time; choose **More
 - Drag and drop between panels, onto folders, and to/from Explorer or the desktop (hold Shift to move)
 - F3 viewer for text and images; F3 on a folder calculates its size
 - **Preview window:** on by default — a small floating window that follows the selected file: video and music player, photos, PDF pages, text and CNC programs, and Windows thumbnails for Office documents and everything else. Turn it off or on with the Preview button (Home or View tab) or Ctrl+Q
+- **ZIP archives:** Zip (Alt+F5) packs files and folders, Unzip (Alt+F9) unpacks them; press Enter on a .zip to browse it like a folder — preview, open and copy files out with F5, copy files in, or delete them from the archive
 - Live auto-refresh when files change on disk
 - Panels, hidden-files setting and window size are remembered between runs
 
@@ -61,6 +62,7 @@ Windows SmartScreen may warn about an unsigned app the first time; choose **More
 | Ctrl+T / Ctrl+E | Terminal here / show in Explorer |
 | Ctrl+Shift+C | Copy full path |
 | Ctrl+Q | Preview window on/off |
+| Alt+F5 / Alt+F9 | Zip / unzip |
 | F1 | Shortcut list |
 
 ## Building from source

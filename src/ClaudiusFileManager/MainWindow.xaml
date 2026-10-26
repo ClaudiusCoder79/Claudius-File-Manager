@@ -125,6 +125,14 @@
                                     Content="{DynamicResource L.NewFile}" Tag="newfile" Click="Cmd_Click" ToolTip="Shift+F4"/>
                         </StackPanel>
                     </HeaderedContentControl>
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpArchive}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileIndigo}" local:Rb.Glyph="&#xE7B8;"
+                                    Content="{DynamicResource L.Zip}" Tag="pack" Click="Cmd_Click" ToolTip="Alt+F5"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileIndigo}" local:Rb.Glyph="&#xE8DA;"
+                                    Content="{DynamicResource L.Unzip}" Tag="unpack" Click="Cmd_Click" ToolTip="Alt+F9"/>
+                        </StackPanel>
+                    </HeaderedContentControl>
                     <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpOpen}">
                         <StackPanel Orientation="Horizontal">
                             <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TilePurple}" local:Rb.Glyph="&#xE8E5;"
