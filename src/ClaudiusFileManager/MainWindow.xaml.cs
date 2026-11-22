@@ -122,9 +122,9 @@ public partial class MainWindow : Window
         S.Left = LeftPanel.CurrentPath;
         S.Right = RightPanel.CurrentPath;
         S.LeftTabs = LeftPanel.TabPaths;
-        S.LeftTab = LeftPanel.TabIndex;
+        S.LeftTab = LeftPanel.ActiveTab;
         S.RightTabs = RightPanel.TabPaths;
-        S.RightTab = RightPanel.TabIndex;
+        S.RightTab = RightPanel.ActiveTab;
         S.ShowHidden = HiddenSwitch.IsChecked == true;
         S.ShowFolderSizes = FolderSizeSwitch.IsChecked == true;
         S.ShowNavPane = NavPaneSwitch.IsChecked == true;
@@ -435,11 +435,12 @@ public partial class MainWindow : Window
         if (!NotInArchive(p)) return;
         var items = p.GetSelection();
         if (items.Count == 0) return;
-        if (BatchRenameWindow.Run(this, items) > 0)
-        {
-            LeftPanel.Refresh();
-            RightPanel.Refresh();
-        }
+        var renamed = BatchRenameWindow.Run(this, items);
+        if (renamed.Count == 0) return;
+        LeftPanel.Refresh();
+        RightPanel.Refresh();
+        // Keep the cursor on the first renamed item.
+        p.FocusList(Path.GetFileName(renamed[0]));
     }
 
     /// <summary>Ctrl+Shift+P: find any command by typing part of its name.</summary>

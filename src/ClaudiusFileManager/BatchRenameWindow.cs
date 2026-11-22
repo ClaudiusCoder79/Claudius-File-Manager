@@ -32,6 +32,7 @@ public sealed class BatchRenameWindow : Window
 
     /// <summary>How many items were renamed (0 if cancelled).</summary>
     public int Renamed { get; private set; }
+    private readonly List<string> _newPaths = new();
 
     private const string RowTemplate = """
         <DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
@@ -262,12 +263,12 @@ public sealed class BatchRenameWindow : Window
         Loaded += (_, _) => { _name.Focus(); _name.SelectAll(); };
     }
 
-    /// <summary>Shows the dialog; returns how many items were renamed.</summary>
-    public static int Run(Window owner, List<FileItem> items)
+    /// <summary>Shows the dialog; returns the new paths of the renamed items (empty if cancelled).</summary>
+    public static List<string> Run(Window owner, List<FileItem> items)
     {
         var w = new BatchRenameWindow(owner, items);
         w.ShowDialog();
-        return w.Renamed;
+        return w._newPaths;
     }
 
     // ───────────────────────── naming ─────────────────────────
@@ -406,6 +407,7 @@ public sealed class BatchRenameWindow : Window
             {
                 MoveItem(temps[i].Temp, temps[i].Final, temps[i].IsDir);
                 Renamed++;
+                _newPaths.Add(temps[i].Final);
                 temps[i] = temps[i] with { Temp = "" };
             }
             DialogResult = true;

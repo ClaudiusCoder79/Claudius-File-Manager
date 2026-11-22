@@ -655,7 +655,7 @@ public partial class FilePanel : UserControl
     // ───────────────────────── tabs ─────────────────────────
 
     public int TabCount => _tabs.Count;
-    public int TabIndex => _tabIndex;
+    public int ActiveTab => _tabIndex;
 
     /// <summary>Folders of all tabs (for saving between sessions).</summary>
     public List<string> TabPaths => _tabs.Select(t => t == Tab ? (_searchRoot ?? CurrentPath) : t.Path).ToList();
