@@ -38,6 +38,10 @@ Windows SmartScreen may warn about an unsigned app the first time; choose **More
 - F3 viewer for text and images; F3 on a folder calculates its size
 - **Preview window:** on by default — a small floating window that follows the selected file: video and music player, photos, PDF pages, text and CNC programs, and Windows thumbnails for Office documents and everything else. Turn it off or on with the Preview button (Home or View tab) or Ctrl+Q
 - **ZIP archives:** Zip (Alt+F5) packs files and folders, Unzip (Alt+F9) unpacks them; press Enter on a .zip to browse it like a folder — preview, open and copy files out with F5, copy files in, or delete them from the archive
+- **Tabs:** each panel can hold several tabs (Ctrl+T new, Ctrl+W close, Ctrl+Tab / Ctrl+1…9 to switch, middle-click to close); tabs are remembered between sessions
+- **Search in subfolders:** switch on the button next to the search box (or press Alt+F7) and results from the whole folder tree appear as you type; wildcards like `*.nc` work; Ctrl+Enter jumps to a result's folder
+- **Batch rename (Ctrl+M):** rename many files at once with a pattern — [N] name, [C] counter, [D] date, [T] time, [P] folder, [E] extension, [N2-5] part of the name — plus find & replace (optionally regex) and case changes, with a live before → after preview
+- **Command palette (Ctrl+Shift+P):** type part of any command's name and press Enter to run it
 - Live auto-refresh when files change on disk
 - Panels, hidden-files setting and window size are remembered between runs
 
@@ -59,7 +63,12 @@ Windows SmartScreen may warn about an unsigned app the first time; choose **More
 | Ctrl+R | Refresh |
 | Ctrl+H | Toggle hidden files |
 | Ctrl+U / Ctrl+= | Swap panels / same folder in other panel |
-| Ctrl+T / Ctrl+E | Terminal here / show in Explorer |
+| Ctrl+Shift+T / Ctrl+E | Terminal here / show in Explorer |
+| Ctrl+T / Ctrl+W / Ctrl+Tab | New tab / close tab / next tab |
+| Ctrl+Enter | Open folder in new tab (in search results: go to the file) |
+| Alt+F7 | Search in subfolders |
+| Ctrl+M | Batch rename |
+| Ctrl+Shift+P | Command palette |
 | Ctrl+Shift+C | Copy full path |
 | Ctrl+Q | Preview window on/off |
 | Alt+F5 / Alt+F9 | Zip / unzip |

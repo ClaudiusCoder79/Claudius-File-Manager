@@ -21,8 +21,9 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- Drive buttons -->
-                <ItemsControl x:Name="DriveList" Grid.Row="0" Margin="12,12,12,0" Focusable="False">
+                <!-- Drive buttons, then tabs (shown once there is more than one) -->
+                <StackPanel Grid.Row="0">
+                <ItemsControl x:Name="DriveList" Margin="12,12,12,0" Focusable="False">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
@@ -39,6 +40,39 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                <Grid x:Name="TabBar" Margin="12,2,12,0" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <ItemsControl x:Name="TabList" Focusable="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource TabChip}" Click="Tab_Click" PreviewMouseUp="Tab_MouseUp"
+                                        ToolTip="{Binding Path}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE8B7;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                                                   VerticalAlignment="Center" Margin="0,0,5,0" Opacity="0.8"/>
+                                        <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" MaxWidth="150"
+                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                        <Button Style="{StaticResource TabCloseButton}" Click="TabClose_Click"
+                                                ToolTip="{DynamicResource L.CloseTabTip}">
+                                            <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="8"/>
+                                        </Button>
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Grid.Column="1" Style="{StaticResource DriveChip}" Click="NewTab_Click"
+                            ToolTip="{DynamicResource L.NewTabTip}" VerticalAlignment="Top">
+                        <TextBlock Text="&#xE710;" FontFamily="{StaticResource IconFont}" FontSize="11" VerticalAlignment="Center"/>
+                    </Button>
+                </Grid>
+                </StackPanel>
 
                 <!-- Back / Up / large title -->
                 <Grid Grid.Row="1" Margin="8,2,12,0">
@@ -66,12 +100,18 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="8"/>
                         <ColumnDefinition Width="170"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="PathBox" Style="{StaticResource IosTextBox}" Tag="{DynamicResource L.Path}"
                              PreviewKeyDown="PathBox_PreviewKeyDown"/>
                     <TextBox x:Name="SearchBox" Grid.Column="2" Style="{StaticResource IosTextBox}"
                              Tag="{DynamicResource L.Search}"
                              TextChanged="SearchBox_TextChanged" PreviewKeyDown="SearchBox_PreviewKeyDown"/>
+                    <Button x:Name="DeepButton" Grid.Column="3" Style="{StaticResource ToolButton}" Padding="7,5"
+                            Margin="4,0,0,0" Click="Deep_Click" ToolTip="{DynamicResource L.DeepSearchTip}">
+                        <TextBlock x:Name="DeepGlyph" Style="{StaticResource Glyph}" Text="&#xE81E;" FontSize="14"
+                                   Foreground="{DynamicResource SecondaryLabelBrush}"/>
+                    </Button>
                 </Grid>
 
                 <!-- Column headers -->
@@ -118,8 +158,10 @@
                                 <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}" FontSize="16"
                                            Foreground="{Binding IconBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Left"/>
-                                <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontSize="13"
-                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                    <Run Text="{Binding DisplayName, Mode=OneWay}"/><Run Text="{Binding LocationText, Mode=OneWay}"
+                                         FontSize="11.5" Foreground="{DynamicResource SecondaryLabelBrush}"/>
+                                </TextBlock>
                                 <TextBlock Grid.Column="2" Text="{Binding Ext}" FontSize="12" Opacity="0.55"
                                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="3" Text="{Binding SizeText}" FontSize="12" Opacity="0.55"
@@ -133,6 +175,12 @@
                         <ContextMenu>
                             <MenuItem Header="{DynamicResource L.Open}" Tag="open" Click="Ctx_Click" InputGestureText="Enter">
                                 <MenuItem.Icon><TextBlock Style="{StaticResource Glyph}" Text="&#xE8E5;"/></MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="{DynamicResource L.OpenInNewTab}" Tag="opentab" Click="Ctx_Click" InputGestureText="Ctrl+Enter">
+                                <MenuItem.Icon><TextBlock Style="{StaticResource Glyph}" Text="&#xE8A7;"/></MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="{DynamicResource L.GoToLocation}" Tag="locate" Click="Ctx_Click">
+                                <MenuItem.Icon><TextBlock Style="{StaticResource Glyph}" Text="&#xE8DA;"/></MenuItem.Icon>
                             </MenuItem>
                             <MenuItem Header="{DynamicResource L.View}" Tag="view" Click="Ctx_Click" InputGestureText="F3">
                                 <MenuItem.Icon><TextBlock Style="{StaticResource Glyph}" Text="&#xE7B3;"/></MenuItem.Icon>
@@ -152,6 +200,9 @@
                             </MenuItem>
                             <MenuItem Header="{DynamicResource L.Unzip}" Tag="unpack" Click="Ctx_Click" InputGestureText="Alt+F9">
                                 <MenuItem.Icon><TextBlock Style="{StaticResource Glyph}" Text="&#xE8DA;"/></MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="{DynamicResource L.BatchRename}" Tag="batchrename" Click="Ctx_Click" InputGestureText="Ctrl+M">
+                                <MenuItem.Icon><TextBlock Style="{StaticResource Glyph}" Text="&#xE8AC;"/></MenuItem.Icon>
                             </MenuItem>
                             <MenuItem Header="{DynamicResource L.Rename}" Tag="rename" Click="Ctx_Click" InputGestureText="F2">
                                 <MenuItem.Icon><TextBlock Style="{StaticResource Glyph}" Text="&#xE8AC;"/></MenuItem.Icon>
@@ -173,7 +224,7 @@
                             <MenuItem Header="{DynamicResource L.CtxExplorer}" Tag="explorer" Click="Ctx_Click" InputGestureText="Ctrl+E">
                                 <MenuItem.Icon><TextBlock Style="{StaticResource Glyph}" Text="&#xEC50;"/></MenuItem.Icon>
                             </MenuItem>
-                            <MenuItem Header="{DynamicResource L.CtxTerminal}" Tag="terminal" Click="Ctx_Click" InputGestureText="Ctrl+T">
+                            <MenuItem Header="{DynamicResource L.CtxTerminal}" Tag="terminal" Click="Ctx_Click" InputGestureText="Ctrl+Shift+T">
                                 <MenuItem.Icon><TextBlock Style="{StaticResource Glyph}" Text="&#xE756;"/></MenuItem.Icon>
                             </MenuItem>
                             <MenuItem Header="{DynamicResource L.Properties}" Tag="properties" Click="Ctx_Click" InputGestureText="Alt+Enter">

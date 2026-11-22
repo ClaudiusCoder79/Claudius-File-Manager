@@ -104,8 +104,12 @@ public partial class MainWindow : Window
         string? startDir = args.FirstOrDefault(a => Directory.Exists(a))
                            ?? args.Where(a => File.Exists(a)).Select(a => Path.GetDirectoryName(a)).FirstOrDefault();
 
-        LeftPanel.Navigate(startDir ?? Pick(S.Left, home), false);
-        RightPanel.Navigate(Pick(S.Right, Directory.Exists(downloads) ? downloads : home), false);
+        var rightFallback = Pick(S.Right, Directory.Exists(downloads) ? downloads : home);
+        if (startDir != null) LeftPanel.Navigate(startDir, false);
+        else if (S.LeftTabs is { Count: > 0 }) LeftPanel.RestoreTabs(S.LeftTabs, S.LeftTab, Pick(S.Left, home));
+        else LeftPanel.Navigate(Pick(S.Left, home), false);
+        if (S.RightTabs is { Count: > 0 }) RightPanel.RestoreTabs(S.RightTabs, S.RightTab, rightFallback);
+        else RightPanel.Navigate(rightFallback, false);
 
         SetActive(LeftPanel);
         LeftPanel.FocusList();
@@ -117,6 +121,10 @@ public partial class MainWindow : Window
     {
         S.Left = LeftPanel.CurrentPath;
         S.Right = RightPanel.CurrentPath;
+        S.LeftTabs = LeftPanel.TabPaths;
+        S.LeftTab = LeftPanel.TabIndex;
+        S.RightTabs = RightPanel.TabPaths;
+        S.RightTab = RightPanel.TabIndex;
         S.ShowHidden = HiddenSwitch.IsChecked == true;
         S.ShowFolderSizes = FolderSizeSwitch.IsChecked == true;
         S.ShowNavPane = NavPaneSwitch.IsChecked == true;
@@ -256,9 +264,13 @@ public partial class MainWindow : Window
 
     private void Cmd_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement { Tag: string cmd }) Execute(cmd);
-        if (IsLoaded) _active.FocusList();
+        if (sender is not FrameworkElement { Tag: string cmd }) return;
+        Execute(cmd);
+        if (IsLoaded && !KeepsFocus(cmd)) _active.FocusList();
     }
+
+    /// <summary>Commands that put the cursor in a text box, which must keep it.</summary>
+    private static bool KeepsFocus(string cmd) => cmd is "search" or "deepsearch" or "path";
 
     // ───────────────────────── keyboard (Total Commander layout) ─────────────────────────
 
@@ -275,6 +287,17 @@ public partial class MainWindow : Window
             case Key.Tab when m is None or Shift:
                 SetActive(Other);
                 _active.FocusList();
+                e.Handled = true;
+                return;
+            case Key.Tab when m == Ctrl: cmd = "nexttab"; break;
+            case Key.Tab when m == (Ctrl | Shift): cmd = "prevtab"; break;
+            case Key.P when m == (Ctrl | Shift): cmd = "palette"; break;
+            case Key.T when m == (Ctrl | Shift): cmd = "terminal"; break;
+            case Key.W when m == Ctrl: cmd = "closetab"; break;
+            case Key.M when m == Ctrl: cmd = "batchrename"; break;
+            case Key.F7 when m == ModifierKeys.Alt: cmd = "deepsearch"; break;
+            case >= Key.D1 and <= Key.D9 when m == Ctrl && !inText:
+                _active.SwitchTab(key - Key.D1);
                 e.Handled = true;
                 return;
             case Key.F1: cmd = "help"; break;
@@ -297,7 +320,7 @@ public partial class MainWindow : Window
             case Key.Q when m == Ctrl: cmd = "preview"; break;
             case Key.U when m == Ctrl: cmd = "swap"; break;
             case Key.OemPlus when m == Ctrl: cmd = "samepath"; break;
-            case Key.T when m == Ctrl: cmd = "terminal"; break;
+            case Key.T when m == Ctrl: cmd = "newtab"; break;
             case Key.E when m == Ctrl: cmd = "explorer"; break;
             case Key.C when !inText && m == Ctrl: cmd = "clipcopy"; break;
             case Key.C when !inText && m == (Ctrl | Shift): cmd = "copypath"; break;
@@ -336,7 +359,28 @@ public partial class MainWindow : Window
                 case "move": Transfer(p, Other, move: true); break;
                 case "mkdir": NewFolder(p); break;
                 case "newfile": NewFile(p); break;
-                case "rename": Rename(p); break;
+                case "rename":
+                    if (p.GetSelection().Count > 1) BatchRename(p); else Rename(p);
+                    break;
+                case "batchrename": BatchRename(p); break;
+                case "palette": ShowPalette(); break;
+                case "newtab": p.NewTab(); break;
+                case "opentab":
+                    if (p.CursorItem is { IsDir: true, IsParent: false, IsVirtual: false } d) p.NewTab(d.FullPath);
+                    else if (p.CursorItem is { IsParent: false } f && !f.IsDir && ZipOps.IsZipName(f.Name) && !f.IsInArchive) p.NewTab(f.FullPath);
+                    break;
+                case "closetab": p.CloseTab(); break;
+                case "nexttab": p.NextTab(1); break;
+                case "prevtab": p.NextTab(-1); break;
+                case "search": p.FocusSearch(); break;
+                case "deepsearch": p.FocusDeepSearch(); break;
+                case "locate": if (p.CursorItem is { } li) p.GoToItemLocation(li); break;
+                case "path": p.FocusPath(); break;
+                case "foldersizes": FolderSizeSwitch.IsChecked = FolderSizeSwitch.IsChecked != true; break;
+                case "navpane": NavPaneSwitch.IsChecked = NavPaneSwitch.IsChecked != true; break;
+                case "themesystem": ThemeSystem.IsChecked = true; break;
+                case "themelight": ThemeLight.IsChecked = true; break;
+                case "themedark": ThemeDark.IsChecked = true; break;
                 case "delete": Delete(p, permanent: false); break;
                 case "deletePerm": Delete(p, permanent: true); break;
                 case "refresh": p.LoadDrives(); p.Refresh(); break;
@@ -384,6 +428,90 @@ public partial class MainWindow : Window
             IosDialog.Alert(this, Loc.T("ErrGeneric"), ex.Message);
         }
     }
+
+    /// <summary>Ctrl+M: rename the marked items with a pattern.</summary>
+    private void BatchRename(FilePanel p)
+    {
+        if (!NotInArchive(p)) return;
+        var items = p.GetSelection();
+        if (items.Count == 0) return;
+        if (BatchRenameWindow.Run(this, items) > 0)
+        {
+            LeftPanel.Refresh();
+            RightPanel.Refresh();
+        }
+    }
+
+    /// <summary>Ctrl+Shift+P: find any command by typing part of its name.</summary>
+    private void ShowPalette()
+    {
+        var list = PaletteCommands().Select(c =>
+        {
+            var label = Loc.T(c.Key);
+            return new PaletteCommand(c.Id, label, c.Shortcut, c.Glyph)
+            {
+                Haystack = $"{label} {Loc.English(c.Key)} {c.Id} {c.Shortcut}"
+            };
+        }).ToList();
+        var id = CommandPalette.Pick(this, list);
+        if (id == null) { _active.FocusList(); return; }
+        Execute(id);
+        if (!KeepsFocus(id)) _active.FocusList();
+    }
+
+    private static IEnumerable<(string Id, string Key, string Shortcut, string Glyph)> PaletteCommands() => new[]
+    {
+        ("open", "Open", "Enter", "\uE8E5"),
+        ("opentab", "OpenInNewTab", "Ctrl+Enter", "\uE8A7"),
+        ("view", "View", "F3", "\uE7B3"),
+        ("edit", "Edit", "F4", "\uE70F"),
+        ("copy", "CtxCopyTo", "F5", "\uE8C8"),
+        ("move", "CtxMoveTo", "F6", "\uE8DE"),
+        ("rename", "Rename", "F2", "\uE8AC"),
+        ("batchrename", "BatchRename", "Ctrl+M", "\uE762"),
+        ("mkdir", "NewFolder", "F7", "\uE8F4"),
+        ("newfile", "NewFile", "Shift+F4", "\uE8A5"),
+        ("delete", "Delete", "F8", "\uE74D"),
+        ("deletePerm", "CmdDeletePerm", "Shift+F8", "\uE74D"),
+        ("pack", "Zip", "Alt+F5", "\uE7B8"),
+        ("unpack", "Unzip", "Alt+F9", "\uE8DA"),
+        ("clipcopy", "Copy", "Ctrl+C", "\uE8C8"),
+        ("clipcut", "Cut", "Ctrl+X", "\uE8C6"),
+        ("paste", "Paste", "Ctrl+V", "\uE77F"),
+        ("copypath", "CopyPath", "Ctrl+Shift+C", "\uE71B"),
+        ("selall", "SelectAll", "Ctrl+A", "\uE8B3"),
+        ("selnone", "SelectNone", "Esc", "\uE8E6"),
+        ("selinv", "Invert", "", "\uE895"),
+        ("newtab", "NewTab", "Ctrl+T", "\uE710"),
+        ("closetab", "CloseTab", "Ctrl+W", "\uE711"),
+        ("nexttab", "NextTab", "Ctrl+Tab", "\uE76C"),
+        ("prevtab", "PrevTab", "Ctrl+Shift+Tab", "\uE76B"),
+        ("search", "CmdSearch", "Ctrl+F", "\uE721"),
+        ("deepsearch", "CmdDeepSearch", "Alt+F7", "\uE81E"),
+        ("locate", "GoToLocation", "Ctrl+Enter", "\uE8DA"),
+        ("path", "CmdGoToPath", "Ctrl+L", "\uE8A7"),
+        ("swap", "Swap", "Ctrl+U", "\uE8AB"),
+        ("samepath", "SameFolder", "Ctrl+=", "\uE8A9"),
+        ("refresh", "Refresh", "Ctrl+R", "\uE72C"),
+        ("preview", "Preview", "Ctrl+Q", "\uE8FF"),
+        ("hidden", "HiddenFiles", "Ctrl+H", "\uE7B3"),
+        ("foldersizes", "FolderSizes", "", "\uEDA2"),
+        ("navpane", "NavPane", "", "\uE8A0"),
+        ("themesystem", "CmdThemeSystem", "", "\uE7F8"),
+        ("themelight", "CmdThemeLight", "", "\uE706"),
+        ("themedark", "CmdThemeDark", "", "\uE708"),
+        ("terminal", "CtxTerminal", "Ctrl+Shift+T", "\uE756"),
+        ("explorer", "CtxExplorer", "Ctrl+E", "\uEC50"),
+        ("properties", "Properties", "Alt+Enter", "\uE946"),
+        ("foldersize", "FolderSize", "", "\uEDA2"),
+        ("network", "Network", "", "\uE968"),
+        ("mapdrive", "MapDrive", "", "\uE8CE"),
+        ("unmapdrive", "DisconnectDrive", "", "\uE8CD"),
+        ("help", "Shortcuts", "F1", "\uE765"),
+        ("about", "TabAbout", "", "\uE946"),
+        ("license", "License", "", "\uE8A5"),
+        ("quit", "Quit", "Alt+F4", "\uE7E8"),
+    };
 
     private static string Describe(List<FileItem> items) =>
         items.Count == 1 ? $"“{items[0].Name}”" : Loc.F("NItems", items.Count);

@@ -113,6 +113,8 @@
                                     Content="{DynamicResource L.MoveTo}" Tag="move" Click="Cmd_Click" ToolTip="F6"/>
                             <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileOrange}" local:Rb.Glyph="&#xE8AC;"
                                     Content="{DynamicResource L.Rename}" Tag="rename" Click="Cmd_Click" ToolTip="F2"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileOrange}" local:Rb.Glyph="&#xE762;"
+                                    Content="{DynamicResource L.BatchRename}" Tag="batchrename" Click="Cmd_Click" ToolTip="Ctrl+M"/>
                             <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileRed}" local:Rb.Glyph="&#xE74D;"
                                     Content="{DynamicResource L.Delete}" Tag="delete" Click="Cmd_Click" ToolTip="F8"/>
                         </StackPanel>
@@ -169,6 +171,16 @@
                                     Content="{DynamicResource L.SameFolder}" Tag="samepath" Click="Cmd_Click" ToolTip="Ctrl+="/>
                             <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileTeal}" local:Rb.Glyph="&#xE72C;"
                                     Content="{DynamicResource L.Refresh}" Tag="refresh" Click="Cmd_Click" ToolTip="Ctrl+R"/>
+                        </StackPanel>
+                    </HeaderedContentControl>
+                    <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpTabs}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileBlue}" local:Rb.Glyph="&#xE710;"
+                                    Content="{DynamicResource L.NewTab}" Tag="newtab" Click="Cmd_Click" ToolTip="Ctrl+T"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileBlue}" local:Rb.Glyph="&#xE711;"
+                                    Content="{DynamicResource L.CloseTab}" Tag="closetab" Click="Cmd_Click" ToolTip="Ctrl+W"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileBlue}" local:Rb.Glyph="&#xE81E;"
+                                    Content="{DynamicResource L.CmdDeepSearch}" Tag="deepsearch" Click="Cmd_Click" ToolTip="Alt+F7"/>
                         </StackPanel>
                     </HeaderedContentControl>
                 </StackPanel>
@@ -231,7 +243,7 @@
                     <HeaderedContentControl Style="{StaticResource RibbonGroup}" Header="{DynamicResource L.GrpSystem}">
                         <StackPanel Orientation="Horizontal">
                             <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileGray}" local:Rb.Glyph="&#xE756;"
-                                    Content="{DynamicResource L.Terminal}" Tag="terminal" Click="Cmd_Click" ToolTip="Ctrl+T"/>
+                                    Content="{DynamicResource L.Terminal}" Tag="terminal" Click="Cmd_Click" ToolTip="Ctrl+Shift+T"/>
                             <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileYellow}" local:Rb.Glyph="&#xEC50;"
                                     Content="{DynamicResource L.Explorer}" Tag="explorer" Click="Cmd_Click" ToolTip="Ctrl+E"/>
                             <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TileBlue}" local:Rb.Glyph="&#xE946;"
@@ -244,6 +256,8 @@
                                     Content="{DynamicResource L.FolderSize}" Tag="foldersize" Click="Cmd_Click"/>
                             <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TilePurple}" local:Rb.Glyph="&#xE765;"
                                     Content="{DynamicResource L.Shortcuts}" Tag="help" Click="Cmd_Click" ToolTip="F1"/>
+                            <Button Style="{StaticResource RibbonButton}" local:Rb.Tile="{StaticResource TilePurple}" local:Rb.Glyph="&#xE8FD;"
+                                    Content="{DynamicResource L.Commands}" Tag="palette" Click="Cmd_Click" ToolTip="Ctrl+Shift+P"/>
                         </StackPanel>
                     </HeaderedContentControl>
                 </StackPanel>

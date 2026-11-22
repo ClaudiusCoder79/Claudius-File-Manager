@@ -6,6 +6,11 @@ public sealed class Settings
 {
     public string? Left { get; set; }
     public string? Right { get; set; }
+    /// <summary>Open tabs of each panel and which one is showing.</summary>
+    public List<string>? LeftTabs { get; set; }
+    public List<string>? RightTabs { get; set; }
+    public int LeftTab { get; set; }
+    public int RightTab { get; set; }
     public bool ShowHidden { get; set; }
     public bool ShowFolderSizes { get; set; } = true;
     public bool ShowNavPane { get; set; } = true;

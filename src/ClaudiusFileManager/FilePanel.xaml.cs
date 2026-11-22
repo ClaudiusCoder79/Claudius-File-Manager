@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO.Enumeration;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -33,7 +34,31 @@ public partial class FilePanel : UserControl
     private ICollectionView? _view;
     private string _sortKey = "Name";
     private bool _sortAsc = true;
-    private readonly Stack<string> _history = new();
+    private Stack<string> _history => Tab.History;
+
+    // Tabs: each one remembers its folder, back history, sort order and cursor.
+    private sealed class TabState
+    {
+        public string Path = "";
+        public Stack<string> History = new();
+        public string SortKey = "Name";
+        public bool SortAsc = true;
+        public string? Cursor;
+    }
+    public sealed record TabEntry(string Title, string Path, int Index, bool IsCurrent);
+    private readonly List<TabState> _tabs = new() { new TabState() };
+    private int _tabIndex;
+    private TabState Tab => _tabs[_tabIndex];
+
+    // Search in subfolders
+    private bool _deep;
+    private string? _searchRoot;            // non-null while search results are shown
+    private bool _searching;
+    private bool _searchCapped;
+    private CancellationTokenSource? _searchCts;
+    private readonly DispatcherTimer _searchTimer;
+    private ObservableCollection<FileItem>? _items;
+    private const int MaxResults = 5000;
     private FileSystemWatcher? _watcher;
     private readonly DispatcherTimer _refreshTimer;
     private Point _dragStart;
@@ -46,9 +71,11 @@ public partial class FilePanel : UserControl
         InitializeComponent();
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
         _refreshTimer.Tick += (_, _) => { _refreshTimer.Stop(); Refresh(); };
+        _searchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        _searchTimer.Tick += (_, _) => { _searchTimer.Stop(); RunSearchNow(); };
         PreviewMouseDown += (_, _) => Activated?.Invoke(this, EventArgs.Empty);
         IsKeyboardFocusWithinChanged += (_, e) => { if ((bool)e.NewValue) Activated?.Invoke(this, EventArgs.Empty); };
-        Unloaded += (_, _) => { _watcher?.Dispose(); _sizeCts?.Cancel(); };
+        Unloaded += (_, _) => { _watcher?.Dispose(); _sizeCts?.Cancel(); _searchCts?.Cancel(); };
         Loc.Changed += OnLanguageChanged;
         // The cursor can move without the selection changing (Insert key, clicks with Ctrl): report that too.
         FileList.AddHandler(UIElement.GotKeyboardFocusEvent, new KeyboardFocusChangedEventHandler((_, e) =>
@@ -155,6 +182,7 @@ public partial class FilePanel : UserControl
     public bool Navigate(string path, bool pushHistory = true, string? selectName = null)
     {
         bool hadFocus = IsKeyboardFocusWithin;
+        CancelSearch();
         path = Environment.ExpandEnvironmentVariables(path.Trim().Trim('"'));
         if (path.Length == 2 && path[1] == ':') path += "\\";
 
@@ -220,10 +248,9 @@ public partial class FilePanel : UserControl
         ApplySort();
 
         PathBox.Text = full;
-        var name = Path.GetFileName(full);
-        TitleText.Text = NetworkOps.IsNetRoot(full) ? Loc.T("Network")
-                       : NetworkOps.IsServerPath(full) ? full[2..]
-                       : string.IsNullOrEmpty(name) ? full : name;
+        TitleText.Text = TitleOf(full);
+        Tab.Path = full;
+        UpdateTabBar();
         BackButton.IsEnabled = _history.Count > 0;
         UpButton.IsEnabled = !NetworkOps.IsNetRoot(full) &&
                              (isVirtual || NetworkOps.IsShareRoot(full) || Directory.GetParent(full) != null);
@@ -248,6 +275,14 @@ public partial class FilePanel : UserControl
         StartFolderSizes();
         Navigated?.Invoke(this);
         return true;
+    }
+
+    private static string TitleOf(string full)
+    {
+        var name = Path.GetFileName(full);
+        return NetworkOps.IsNetRoot(full) ? Loc.T("Network")
+             : NetworkOps.IsServerPath(full) ? full[2..]
+             : string.IsNullOrEmpty(name) ? full : name;
     }
 
     /// <summary>Measures every folder in the list, one after another, on a background thread.</summary>
@@ -303,6 +338,7 @@ public partial class FilePanel : UserControl
     public void Refresh()
     {
         if (CurrentPath.Length == 0) return;
+        if (_searchRoot != null) { RunSearchNow(); return; }
         if (NetworkOps.IsVirtualPath(CurrentPath) || InArchive && ZipOps.IsInside(CurrentPath))
         {
             var keep = CursorItem?.Name;
@@ -512,6 +548,7 @@ public partial class FilePanel : UserControl
         files.Sort(Compare);
 
         var sorted = new ObservableCollection<FileItem>(parent.Concat(dirs).Concat(files));
+        _items = sorted;
         _view = CollectionViewSource.GetDefaultView(sorted);
         _view.Filter = FilterItem;
         FileList.ItemsSource = _view;
@@ -533,6 +570,7 @@ public partial class FilePanel : UserControl
 
     private bool FilterItem(object o)
     {
+        if (_searchRoot != null) return true;      // search results are already matches
         var q = SearchBox.Text.Trim();
         return q.Length == 0 || o is FileItem { IsParent: true } ||
                ((FileItem)o).Name.Contains(q, StringComparison.OrdinalIgnoreCase);
@@ -550,6 +588,16 @@ public partial class FilePanel : UserControl
     private void UpdateStatus()
     {
         if (_view == null) return;
+        if (_searchRoot != null)
+        {
+            int n = _all.Count;
+            var selected = FileList.SelectedItems.Cast<FileItem>().ToList();
+            StatusLeft.Text = _searching ? Loc.F("Searching", n)
+                            : selected.Count > 1 ? Loc.F("StatusSelected", selected.Count, n, FileItem.FormatSize(selected.Sum(i => i.Size)))
+                            : Loc.F(_searchCapped ? "SearchFoundCapped" : "SearchFound", n);
+            StatusRight.Text = Loc.F("SearchIn", TitleOf(_searchRoot));
+            return;
+        }
         var visible = _view.Cast<FileItem>().Where(i => !i.IsParent).ToList();
         int dirs = visible.Count(i => i.IsDir), files = visible.Count - dirs;
         var sel = FileList.SelectedItems.Cast<FileItem>().Where(i => !i.IsParent).ToList();
@@ -584,6 +632,7 @@ public partial class FilePanel : UserControl
 
     private void Kick() => Dispatcher.InvokeAsync(() =>
     {
+        if (_searchRoot != null) return;     // results stay put until the user refreshes
         FolderSizer.Forget(CurrentPath);
         _refreshTimer.Stop();
         _refreshTimer.Start();
@@ -601,6 +650,302 @@ public partial class FilePanel : UserControl
             FileList.UpdateLayout();
             (FileList.ItemContainerGenerator.ContainerFromIndex(i + 1) as ListBoxItem)?.Focus();
         }
+    }
+
+    // ───────────────────────── tabs ─────────────────────────
+
+    public int TabCount => _tabs.Count;
+    public int TabIndex => _tabIndex;
+
+    /// <summary>Folders of all tabs (for saving between sessions).</summary>
+    public List<string> TabPaths => _tabs.Select(t => t == Tab ? (_searchRoot ?? CurrentPath) : t.Path).ToList();
+
+    /// <summary>Re-opens the tabs from the last session; the chosen tab is shown.</summary>
+    public void RestoreTabs(IList<string>? paths, int index, string fallback)
+    {
+        var list = (paths ?? new List<string>()).Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
+        if (list.Count == 0) { Navigate(fallback, false); return; }
+        _tabs.Clear();
+        foreach (var p in list) _tabs.Add(new TabState { Path = p });
+        _tabIndex = Math.Clamp(index, 0, _tabs.Count - 1);
+        var start = Tab.Path;
+        bool ok = ZipOps.IsInside(start) || NetworkOps.IsVirtualPath(start) || SafeExists(start);
+        if (!ok || !Navigate(start, false)) Navigate(fallback, false);
+        UpdateTabBar();
+    }
+
+    private static bool SafeExists(string path)
+    {
+        try { return Directory.Exists(path); } catch { return false; }
+    }
+
+    private void SaveTabState()
+    {
+        Tab.Path = _searchRoot ?? CurrentPath;
+        Tab.SortKey = _sortKey;
+        Tab.SortAsc = _sortAsc;
+        Tab.Cursor = _searchRoot == null ? CursorItem?.Name : null;
+    }
+
+    /// <summary>Opens a new tab (Ctrl+T) showing <paramref name="path"/>, or the current folder.</summary>
+    public void NewTab(string? path = null)
+    {
+        SaveTabState();
+        var t = new TabState { Path = path ?? Tab.Path, SortKey = _sortKey, SortAsc = _sortAsc };
+        _tabs.Insert(_tabIndex + 1, t);
+        _tabIndex++;
+        ShowTab();
+    }
+
+    public void SwitchTab(int index)
+    {
+        if (index < 0 || index >= _tabs.Count || index == _tabIndex) return;
+        SaveTabState();
+        _tabIndex = index;
+        ShowTab();
+    }
+
+    public void NextTab(int step)
+    {
+        if (_tabs.Count > 1) SwitchTab(((_tabIndex + step) % _tabs.Count + _tabs.Count) % _tabs.Count);
+    }
+
+    /// <summary>Closes a tab (Ctrl+W); the last tab can't be closed.</summary>
+    public void CloseTab(int? index = null)
+    {
+        int i = index ?? _tabIndex;
+        if (_tabs.Count <= 1 || i < 0 || i >= _tabs.Count) return;
+        if (i != _tabIndex)
+        {
+            _tabs.RemoveAt(i);
+            if (i < _tabIndex) _tabIndex--;
+            UpdateTabBar();
+            return;
+        }
+        _tabs.RemoveAt(i);
+        _tabIndex = Math.Min(i, _tabs.Count - 1);
+        ShowTab();
+    }
+
+    private void ShowTab()
+    {
+        _sortKey = Tab.SortKey;
+        _sortAsc = Tab.SortAsc;
+        CancelSearch();
+        SearchBox.Text = "";
+        var cursor = Tab.Cursor;
+        if (!Navigate(Tab.Path, false, cursor))
+            Navigate(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), false);
+        UpdateTabBar();
+        FocusList(cursor);
+    }
+
+    private void UpdateTabBar()
+    {
+        TabBar.Visibility = _tabs.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+        if (_tabs.Count <= 1) { TabList.ItemsSource = null; return; }
+        TabList.ItemsSource = _tabs.Select((t, i) =>
+        {
+            var path = i == _tabIndex ? (_searchRoot ?? CurrentPath) : t.Path;
+            return new TabEntry(path.Length == 0 ? "…" : TitleOf(path), path, i, i == _tabIndex);
+        }).ToList();
+    }
+
+    private void Tab_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not TabEntry t) return;
+        Activated?.Invoke(this, EventArgs.Empty);
+        if (t.IsCurrent) FocusList(); else SwitchTab(t.Index);
+    }
+
+    private void Tab_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        // Middle-click closes a tab, as in a browser.
+        if (e.ChangedButton != MouseButton.Middle || (sender as FrameworkElement)?.DataContext is not TabEntry t) return;
+        Activated?.Invoke(this, EventArgs.Empty);
+        CloseTab(t.Index);
+        e.Handled = true;
+    }
+
+    private void TabClose_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if ((sender as FrameworkElement)?.DataContext is not TabEntry t) return;
+        Activated?.Invoke(this, EventArgs.Empty);
+        CloseTab(t.Index);
+    }
+
+    private void NewTab_Click(object sender, RoutedEventArgs e)
+    {
+        Activated?.Invoke(this, EventArgs.Empty);
+        NewTab();
+    }
+
+    // ───────────────────────── search in subfolders ─────────────────────────
+
+    public bool IsShowingSearchResults => _searchRoot != null;
+
+    private bool CanDeepSearch
+    {
+        get
+        {
+            var root = _searchRoot ?? CurrentPath;
+            return root.Length > 0 && !InArchive && !NetworkOps.IsVirtualPath(root);
+        }
+    }
+
+    /// <summary>Search in subfolders on or off (the button next to the search box, or Alt+F7).</summary>
+    public bool DeepSearch
+    {
+        get => _deep;
+        set
+        {
+            if (_deep == value) return;
+            _deep = value;
+            DeepGlyph.SetResourceReference(TextBlock.ForegroundProperty, value ? "AccentBrush" : "SecondaryLabelBrush");
+            if (value) DeepButton.SetResourceReference(BackgroundProperty, "AccentSoftBrush");
+            else DeepButton.ClearValue(BackgroundProperty);
+            SearchBox.SetResourceReference(TagProperty, value ? "L.SearchDeep" : "L.Search");
+            // Re-run what is typed with the new setting.
+            if (SearchBox.Text.Trim().Length > 0) SearchBox_TextChanged(SearchBox, null!);
+        }
+    }
+
+    public void FocusDeepSearch()
+    {
+        DeepSearch = true;
+        FocusSearch();
+    }
+
+    private void Deep_Click(object sender, RoutedEventArgs e)
+    {
+        Activated?.Invoke(this, EventArgs.Empty);
+        DeepSearch = !DeepSearch;
+        SearchBox.Focus();
+        SearchBox.CaretIndex = SearchBox.Text.Length;
+    }
+
+    private void CancelSearch()
+    {
+        _searchTimer.Stop();
+        _searchCts?.Cancel();
+        _searchCts = null;
+        _searchRoot = null;
+        _searching = false;
+    }
+
+    /// <summary>Back from the search results to the folder the search started in.</summary>
+    private void EndSearch()
+    {
+        if (_searchRoot == null) { CancelSearch(); return; }
+        var root = _searchRoot;
+        CancelSearch();
+        Navigate(root, false);
+    }
+
+    private void RunSearchNow()
+    {
+        var q = SearchBox.Text.Trim();
+        if (q.Length == 0) { EndSearch(); return; }
+        if (!CanDeepSearch) return;
+
+        _searchCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _searchCts = cts;
+        var token = cts.Token;
+        var root = _searchRoot ?? CurrentPath;
+        _searchRoot = root;
+        _searching = true;
+        _searchCapped = false;
+        _sizeCts?.Cancel();
+
+        _all = new List<FileItem>();
+        ApplySort();
+        TitleText.Text = Loc.F("SearchTitle", q);
+        UpdateStatus();
+        UpdateTabBar();
+
+        bool hidden = ShowHidden;
+        bool wild = q.IndexOfAny(new[] { '*', '?' }) >= 0;
+        _ = Task.Run(() =>
+        {
+            var opts = new EnumerationOptions
+            {
+                RecurseSubdirectories = true,
+                IgnoreInaccessible = true,
+                AttributesToSkip = hidden ? 0 : FileAttributes.Hidden | FileAttributes.System
+            };
+            var batch = new List<FileItem>();
+            var sw = Stopwatch.StartNew();
+            int total = 0;
+            bool capped = false;
+            try
+            {
+                foreach (var fsi in new DirectoryInfo(root).EnumerateFileSystemInfos("*", opts))
+                {
+                    if (token.IsCancellationRequested) return;
+                    var name = fsi.Name;
+                    bool hit = wild ? FileSystemName.MatchesSimpleExpression(q, name, ignoreCase: true)
+                                    : name.Contains(q, StringComparison.OrdinalIgnoreCase);
+                    if (!hit) continue;
+                    FileItem item;
+                    try { item = FileItem.From(fsi); } catch { continue; }
+                    var dir = Path.GetDirectoryName(fsi.FullName) ?? root;
+                    var rel = Path.GetRelativePath(root, dir);
+                    item.Location = rel == "." ? "" : rel;
+                    batch.Add(item);
+                    if (++total >= MaxResults) { capped = true; break; }
+                    if (sw.ElapsedMilliseconds > 250)
+                    {
+                        var b = batch;
+                        batch = new List<FileItem>();
+                        sw.Restart();
+                        Dispatcher.InvokeAsync(() => { if (!token.IsCancellationRequested) AddResults(b, false, false); });
+                    }
+                }
+            }
+            catch { /* folder vanished or became unreadable: show what was found */ }
+            var last = batch;
+            Dispatcher.InvokeAsync(() => { if (!token.IsCancellationRequested) AddResults(last, true, capped); });
+        }, token);
+    }
+
+    private void AddResults(List<FileItem> found, bool done, bool capped)
+    {
+        if (_searchRoot == null || _items == null) return;
+        _all.AddRange(found);
+        foreach (var it in found) _items.Add(it);
+        if (done)
+        {
+            _searching = false;
+            _searchCapped = capped;
+            // Sort the finished list, keeping the cursor and marks.
+            bool hadFocus = FileList.IsKeyboardFocusWithin;
+            var cursorName = CursorItem?.FullPath;
+            var marked = FileList.SelectedItems.Cast<FileItem>().Select(i => i.FullPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            ApplySort();
+            foreach (var it in FileList.Items.Cast<FileItem>())
+                if (marked.Contains(it.FullPath)) FileList.SelectedItems.Add(it);
+            if (FileList.SelectedItems.Count == 0 && FileList.Items.Count > 0) FileList.SelectedIndex = 0;
+            if (hadFocus)
+            {
+                var match = FileList.Items.Cast<FileItem>().FirstOrDefault(i => string.Equals(i.FullPath, cursorName, StringComparison.OrdinalIgnoreCase));
+                FocusList(match?.Name);
+            }
+        }
+        else if (FileList.SelectedIndex < 0 && FileList.Items.Count > 0) FileList.SelectedIndex = 0;
+        UpdateStatus();
+    }
+
+    /// <summary>Shows the folder a search result is in, with the result selected (Ctrl+Enter).</summary>
+    public void GoToItemLocation(FileItem it)
+    {
+        if (it.IsParent || it.IsVirtual) return;
+        var folder = Path.GetDirectoryName(it.FullPath);
+        if (string.IsNullOrEmpty(folder)) return;
+        CancelSearch();
+        SearchBox.Text = "";
+        if (Navigate(folder, true, it.Name)) FocusList(it.Name);
     }
 
     // ───────────────────────── event handlers ─────────────────────────
@@ -652,6 +997,14 @@ public partial class FilePanel : UserControl
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
+        var q = SearchBox.Text.Trim();
+        if (_deep && CanDeepSearch)
+        {
+            _searchTimer.Stop();
+            if (q.Length == 0) EndSearch(); else _searchTimer.Start();
+            return;
+        }
+        if (_searchRoot != null) EndSearch();
         _view?.Refresh();
         UpdateStatus();
     }
@@ -661,6 +1014,7 @@ public partial class FilePanel : UserControl
         if (e.Key == Key.Escape) { SearchBox.Text = ""; FocusList(); e.Handled = true; }
         else if (e.Key is Key.Down or Key.Enter)
         {
+            if (_searchTimer.IsEnabled) { _searchTimer.Stop(); RunSearchNow(); }
             if (FileList.Items.Count > 1 && FileList.SelectedItem is FileItem { IsParent: true })
                 FileList.SelectedIndex = 1;
             FocusList();
@@ -691,6 +1045,17 @@ public partial class FilePanel : UserControl
             if (CursorItem is { } it) Open(it);
             e.Handled = true;
         }
+        else if (key == Key.Enter && mods == ModifierKeys.Control)
+        {
+            // In search results: go to where the file is. Otherwise: open the folder in a new tab.
+            CommandRequested?.Invoke(this, _searchRoot != null ? "locate" : "opentab");
+            e.Handled = true;
+        }
+        else if (key == Key.Escape && _searchRoot != null && FileList.SelectedItems.Count <= 1)
+        {
+            SearchBox.Text = "";
+            e.Handled = true;
+        }
         else if (key == Key.Enter && mods == ModifierKeys.Alt)
         {
             CommandRequested?.Invoke(this, "properties");
@@ -698,7 +1063,8 @@ public partial class FilePanel : UserControl
         }
         else if (key == Key.Back && mods == ModifierKeys.None)
         {
-            GoUp();
+            if (_searchRoot != null) SearchBox.Text = "";   // leave the search results
+            else GoUp();
             e.Handled = true;
         }
         else if (key == Key.Left && mods == ModifierKeys.Alt)

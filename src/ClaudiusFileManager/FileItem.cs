@@ -27,6 +27,9 @@ public sealed class FileItem : INotifyPropertyChanged
     public DateTime Modified { get; private init; }
     public string DisplayName { get; private init; } = "";
     public string Ext { get; private init; } = "";
+    /// <summary>Search results: the folder the item was found in, relative to where the search started.</summary>
+    public string Location { get; set; } = "";
+    public string LocationText => Location.Length == 0 ? "" : "    " + Location;
     public string Glyph { get; private init; } = "";
     public Brush IconBrush { get; private init; } = Palette.Gray;
 

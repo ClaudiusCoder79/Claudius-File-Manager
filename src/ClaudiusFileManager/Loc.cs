@@ -56,6 +56,15 @@ public static class Loc
 
     public static string T(string key) => _strings.TryGetValue(key, out var v) ? v : key;
 
+    private static Dictionary<string, string>? _english;
+
+    /// <summary>The English text of a key (lets the command palette find commands by their English name too).</summary>
+    public static string English(string key)
+    {
+        _english ??= Read("en");
+        return _english.TryGetValue(key, out var v) ? v : key;
+    }
+
     public static string F(string key, params object[] args)
     {
         try { return string.Format(T(key), args); }
